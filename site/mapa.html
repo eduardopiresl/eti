@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/img/logo-eti.svg">
+<title>Mapa — ETI</title>
+<link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+<link href="assets/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+<link href="assets/css/eti.css" rel="stylesheet">
+<style>
+  .mapa-tela { position: relative; }
+  #mapa { display: block; width: 100%; aspect-ratio: 900 / 560; border-radius: 8px; background: #E9EEF7; touch-action: none; cursor: pointer; outline: none; }
+  #mapa:focus-visible { box-shadow: 0 0 0 3px var(--peri); }
+  .bonecos { display: flex; flex-wrap: wrap; gap: 8px; }
+  .bonecos button { display: inline-flex; align-items: center; gap: 8px; }
+  .bonecos .bola { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.2); }
+  .teclas { display: grid; grid-template-columns: repeat(3, 44px); gap: 6px; justify-content: center; }
+  .teclas button { height: 44px; padding: 0; }
+  .eventos-mapa { list-style: none; padding: 0; margin: 0; font-size: var(--t1); }
+  .eventos-mapa li { padding: 6px 0; border-bottom: 1px solid var(--linha); }
+  .eventos-mapa li span { color: var(--tinta-fraca); margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<div class="pagina">
+
+  <div class="topo">
+    <a class="marca" href="dashboard.html"><img src="assets/img/logo-eti.svg" alt="">ETI</a>
+    <nav class="menu" data-menu aria-label="Seções"></nav>
+  </div>
+
+  <header class="cabecalho">
+    <h1>Mapa da sala</h1>
+    <p>Gêmeo digital: o que acontece aqui acontece na placa, e o que acontece na placa aparece aqui.
+      A porta só abre com o cartão de verdade, e o boneco passando na frente do sensor de presença
+      conta como movimento para o Arduino.</p>
+  </header>
+
+  <div class="row g-3 mb-3">
+
+    <div class="col-lg-8">
+      <section class="secao mapa-tela">
+        <canvas id="mapa" tabindex="0" aria-label="Mapa da sala. Use as setas para andar com o boneco escolhido."></canvas>
+        <p class="legenda mb-0" id="dica"></p>
+      </section>
+    </div>
+
+    <div class="col-lg-4">
+      <section class="secao">
+        <h2>Bonecos</h2>
+        <p class="legenda mt-0">Cada cartão é um boneco. Escolha um e ande com as setas, com W A S D
+          ou clicando no mapa.</p>
+        <div class="bonecos mb-3" id="lista-bonecos"></div>
+        <div class="teclas mb-2" aria-label="Setas na tela">
+          <span></span>
+          <button type="button" class="btn btn-outline-primary" data-tecla="ArrowUp" aria-label="Para cima"><i class="bi bi-arrow-up"></i></button>
+          <span></span>
+          <button type="button" class="btn btn-outline-primary" data-tecla="ArrowLeft" aria-label="Para a esquerda"><i class="bi bi-arrow-left"></i></button>
+          <button type="button" class="btn btn-outline-primary" data-tecla="ArrowDown" aria-label="Para baixo"><i class="bi bi-arrow-down"></i></button>
+          <button type="button" class="btn btn-outline-primary" data-tecla="ArrowRight" aria-label="Para a direita"><i class="bi bi-arrow-right"></i></button>
+        </div>
+
+        <div class="bloco">
+          <h3>Como entrar e sair</h3>
+          <ol class="legenda mt-0 ps-3">
+            <li>Passe o cartão do boneco no leitor de verdade: a porta do mapa abre.</li>
+            <li>Leve o boneco para dentro, até a área azul do sensor de presença.</li>
+            <li>O Arduino confirma a entrada e acende a lâmpada se estiver escuro.</li>
+            <li>Para sair, passe o mesmo cartão de novo: o boneco sai sozinho.</li>
+          </ol>
+        </div>
+
+        <div class="bloco" id="bloco-serial" hidden>
+          <h3>Arduino</h3>
+          <button type="button" class="btn btn-primary" id="btn-serial">
+            <i class="bi bi-usb-symbol" aria-hidden="true"></i> <span>Conectar Arduino</span>
+          </button>
+          <p class="legenda" id="erro-serial" hidden></p>
+        </div>
+
+        <div class="bloco">
+          <h3>Últimos acontecimentos</h3>
+          <ul class="eventos-mapa" id="eventos"></ul>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="assets/vendor/firebase/firebase-app-compat.js"></script>
+<script src="assets/vendor/firebase/firebase-auth-compat.js"></script>
+<script src="assets/vendor/firebase/firebase-database-compat.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/serial.js"></script>
+<script src="assets/js/mapa.js"></script>
+</body>
+</html>

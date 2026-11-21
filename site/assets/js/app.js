@@ -7,6 +7,7 @@ window.ETI = window.ETI || {};
 
   const PAGINAS = [
     { href: 'dashboard.html', nome: 'Sala', icone: 'bi-door-open' },
+    { href: 'mapa.html', nome: 'Mapa', icone: 'bi-map' },
     { href: 'avisos.html', nome: 'Avisos', icone: 'bi-megaphone' },
     { href: 'relatorio.html', nome: 'Registro', icone: 'bi-journal-text' },
     { href: 'painel.html', nome: 'Painel', icone: 'bi-tv' }
