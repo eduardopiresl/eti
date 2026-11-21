@@ -51,33 +51,55 @@ window.ETI = window.ETI || {};
     return itens;
   }
 
-  raiz.child('status').on('value', function (s) { emitir('status', s.val()); recalcular(); });
-
-  raiz.child('eventos').orderByChild('ts').limitToLast(LIMITE_EVENTOS).on('value', function (s) {
-    emitir('eventos', lista(s).reverse());
-    recalcular();
+  let iniciado = false;
+  firebase.auth().onAuthStateChanged(function (usuario) {
+    if (!usuario) {
+      if (!window.ETI_PAGINA_LOGIN) location.replace('index.html');
+      return;
+    }
+    emitir('usuario', usuario);
+    if (!iniciado && !window.ETI_PAGINA_LOGIN) { iniciado = true; assinar(); }
   });
 
-  raiz.child('historico').orderByChild('ts').limitToLast(LIMITE_HISTORICO).on('value', function (s) {
-    emitir('historico', lista(s));
-  });
+  function assinar() {
+    raiz.child('status').on('value', function (s) { emitir('status', s.val()); recalcular(); });
 
-  raiz.child('config').on('value', function (s) {
-    const c = Object.assign({}, CONFIG_PADRAO, s.val() || {});
-    c.nomes = c.nomes || {};
-    emitir('config', c);
-    recalcular();
-  });
+    raiz.child('eventos').orderByChild('ts').limitToLast(LIMITE_EVENTOS).on('value', function (s) {
+      emitir('eventos', lista(s).reverse());
+      recalcular();
+    });
 
-  raiz.child('gateway').on('value', function (s) { emitir('gateway', s.val()); });
+    raiz.child('historico').orderByChild('ts').limitToLast(LIMITE_HISTORICO).on('value', function (s) {
+      emitir('historico', lista(s));
+    });
 
-  db.ref('avisos').orderByChild('criadoEm').on('value', function (s) {
-    emitir('avisos', lista(s).reverse());
-  });
+    raiz.child('config').on('value', function (s) {
+      const c = Object.assign({}, CONFIG_PADRAO, s.val() || {});
+      c.nomes = c.nomes || {};
+      emitir('config', c);
+      recalcular();
+    });
 
-  db.ref('.info/connected').on('value', function (s) { emitir('conectadoFirebase', !!s.val()); });
+    raiz.child('gateway').on('value', function (s) { emitir('gateway', s.val()); });
 
-  setInterval(recalcular, 2000);
+    db.ref('avisos').orderByChild('criadoEm').on('value', function (s) {
+      emitir('avisos', lista(s).reverse());
+    });
+
+    db.ref('.info/connected').on('value', function (s) { emitir('conectadoFirebase', !!s.val()); });
+
+    setInterval(recalcular, 2000);
+  }
+
+  ETI.auth = {
+    entrar: function (email, senha) {
+      return firebase.auth().signInWithEmailAndPassword(email, senha);
+    },
+    sair: function () {
+      return firebase.auth().signOut().then(function () { location.replace('index.html'); });
+    },
+    onUsuario: function (fn) { return inscrever('usuario', fn); }
+  };
 
   function eventoRecente(acao, ms) {
     const ev = (valores.eventos || []).find(function (e) { return e.acao === acao; });

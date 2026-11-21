@@ -47,13 +47,13 @@ Bibliotecas: DHT sensor library + Adafruit Unified Sensor, MFRC522, OneWire, Dal
 node servidor-local.js
 ```
 
-Abra http://localhost:5500 no **Chrome ou Edge**, entre e clique em **Conectar Arduino**
+Abra http://localhost:5500 no **Chrome ou Edge**, entre com o seu usuário do Firebase e clique em **Conectar Arduino**
 (feche antes o Monitor Serial do Arduino IDE: a porta USB só pode ser usada por um programa).
 
-## Publicar
+## Configuração e segurança
 
-No Vercel ou no GitHub Pages, publique a pasta `site/` (no Vercel: *Root Directory* = `site`).
-O "Conectar Arduino" funciona no site publicado porque ele usa https.
-
-As regras do banco estão em **modo teste até 21/12/2026**. Depois disso o Firebase
-recusa leitura e gravação até as regras serem atualizadas.
+- `site/assets/js/firebase-config.js` fica só no seu computador (está no `.gitignore`).
+  Para montar em outro computador, copie `firebase-config.exemplo.js` com esse nome e preencha
+  com os dados do console do Firebase (Configurações do projeto → Seus apps).
+- O site exige login (Firebase Authentication, e-mail e senha). As regras do Realtime Database
+  só deixam ler e gravar o usuário dono do projeto; qualquer outro acesso recebe "Permission denied".

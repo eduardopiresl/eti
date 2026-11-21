@@ -17,54 +17,56 @@
     <h1>Sala Inteligente</h1>
     <p class="legenda">Escola Tecnológica Inteligente · protótipo com Arduino</p>
 
-    <label class="perfil mt-4">
-      <input class="form-check-input" type="radio" name="perfil" value="gestor" checked>Gestor
-      <span class="sub">Sala, avisos e registro</span>
-    </label>
-    <label class="perfil">
-      <input class="form-check-input" type="radio" name="perfil" value="professor">Professor
-      <span class="sub">Sala e painel</span>
-    </label>
-
     <div class="mt-4 mb-3">
-      <label class="form-label" for="email">E-mail institucional</label>
-      <input class="form-control" type="email" id="email" value="gestor@senai.br" autocomplete="username" required>
+      <label class="form-label" for="email">E-mail</label>
+      <input class="form-control" type="email" id="email" autocomplete="username" required>
     </div>
 
     <div class="mb-3">
       <label class="form-label" for="senha">Senha</label>
-      <input class="form-control" type="password" id="senha" value="demo1234" autocomplete="current-password" required>
+      <input class="form-control" type="password" id="senha" autocomplete="current-password" required>
     </div>
 
-    <button type="submit" class="btn btn-primary w-100 py-2">
+    <button type="submit" class="btn btn-primary w-100 py-2" id="btn-entrar">
       <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Entrar
     </button>
 
-    <p class="legenda mt-4">
-      Versão de demonstração: qualquer senha entra.
-      <a href="painel.html">Abrir o painel de TV</a> não exige acesso.
-    </p>
+    <p class="legenda mt-3" id="erro" role="alert" hidden></p>
   </form>
 </main>
 
+<script>window.ETI_PAGINA_LOGIN = true;</script>
+<script src="assets/vendor/firebase/firebase-app-compat.js"></script>
+<script src="assets/vendor/firebase/firebase-auth-compat.js"></script>
+<script src="assets/vendor/firebase/firebase-database-compat.js"></script>
+<script src="assets/js/firebase-config.js"></script>
 <script src="assets/js/app.js"></script>
+<script src="assets/js/data.js"></script>
 <script>
-document.querySelectorAll('input[name="perfil"]').forEach(function (r) {
-  r.addEventListener('change', function () {
-    document.getElementById('email').value =
-      r.value === 'gestor' ? 'gestor@senai.br' : 'professor@senai.br';
-  });
+ETI.auth.onUsuario(function (u) {
+  if (u) location.replace('dashboard.html');
 });
 
 document.getElementById('form-login').addEventListener('submit', function (e) {
   e.preventDefault();
-  const perfil = document.querySelector('input[name="perfil"]:checked').value;
-  sessionStorage.setItem('eti:sessao', JSON.stringify({
-    perfil: perfil,
-    email: document.getElementById('email').value,
-    entrouEm: Date.now()
-  }));
-  location.href = 'dashboard.html';
+  const erro = document.getElementById('erro');
+  const botao = document.getElementById('btn-entrar');
+  erro.hidden = true;
+  botao.disabled = true;
+  ETI.auth.entrar(document.getElementById('email').value.trim(), document.getElementById('senha').value)
+    .catch(function (err) {
+      const msgs = {
+        'auth/invalid-credential': 'E-mail ou senha incorretos.',
+        'auth/invalid-login-credentials': 'E-mail ou senha incorretos.',
+        'auth/wrong-password': 'E-mail ou senha incorretos.',
+        'auth/user-not-found': 'E-mail ou senha incorretos.',
+        'auth/too-many-requests': 'Muitas tentativas. Espere um pouco e tente de novo.',
+        'auth/network-request-failed': 'Sem internet para falar com o Firebase.'
+      };
+      erro.textContent = msgs[err.code] || 'Não deu para entrar (' + err.code + ').';
+      erro.hidden = false;
+      botao.disabled = false;
+    });
 });
 </script>
 </body>

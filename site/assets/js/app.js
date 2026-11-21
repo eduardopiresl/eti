@@ -7,34 +7,24 @@ window.ETI = window.ETI || {};
 
   const PAGINAS = [
     { href: 'dashboard.html', nome: 'Sala', icone: 'bi-door-open' },
-    { href: 'avisos.html', nome: 'Avisos', icone: 'bi-megaphone', soGestor: true },
-    { href: 'relatorio.html', nome: 'Registro', icone: 'bi-journal-text', soGestor: true },
+    { href: 'avisos.html', nome: 'Avisos', icone: 'bi-megaphone' },
+    { href: 'relatorio.html', nome: 'Registro', icone: 'bi-journal-text' },
     { href: 'painel.html', nome: 'Painel', icone: 'bi-tv' }
   ];
 
   ETI.ui = {
     dias: DIAS_CURTO,
 
-    sessao: function () {
-      try { return JSON.parse(sessionStorage.getItem('eti:sessao') || 'null'); }
-      catch (e) { return null; }
-    },
-
-    exigirSessao: function (soGestor) {
-      const s = ETI.ui.sessao();
-      if (!s) { location.replace('index.html'); return null; }
-      if (soGestor && s.perfil !== 'gestor') { location.replace('dashboard.html'); return null; }
-      return s;
+    exigirSessao: function () {
+      return true;
     },
 
     montarTopo: function (atual) {
       const alvo = document.querySelector('[data-menu]');
       if (!alvo) return;
-      const perfil = (ETI.ui.sessao() || {}).perfil || 'gestor';
 
       let html = '';
       PAGINAS.forEach(function (p) {
-        if (p.soGestor && perfil !== 'gestor') return;
         html += '<a href="' + p.href + '"' +
           (p.href === atual ? ' aria-current="page"' : '') + '>' +
           '<i class="bi ' + p.icone + '" aria-hidden="true"></i>' + p.nome + '</a>';
@@ -43,8 +33,7 @@ window.ETI = window.ETI || {};
 
       alvo.innerHTML = html;
       alvo.querySelector('[data-sair]').addEventListener('click', function () {
-        sessionStorage.removeItem('eti:sessao');
-        location.href = 'index.html';
+        ETI.auth.sair();
       });
     },
 
