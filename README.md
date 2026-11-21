@@ -4,7 +4,7 @@ Protótipo de sala inteligente com **Arduino Nano**, **Firebase Realtime Databas
 dashboard do **ETI (Escola Tecnológica Inteligente)**.
 
 O Arduino mede temperatura e umidade (DHT22), luz (LDR), movimento (HC-SR501),
-temperatura da água do filtro (DS18B20) e controla quem entra e sai pelo cartão (RC522).
+temperatura do projetor (DS18B20 colado no aparelho) e controla quem entra e sai pelo cartão (RC522).
 Um LED faz o papel da lâmpada da sala.
 
 ```
@@ -27,7 +27,7 @@ Arduino ──USB──> computador da sala (Chrome, "Conectar Arduino") ──>
 | DHT22 | VCC 5V · DATA D2 · GND · 10k entre VCC e DATA |
 | HC-SR501 (PIR) | VCC 5V · OUT D3 · GND |
 | LED (lâmpada) | D4 → 680 Ω → perna longa · perna curta no GND |
-| DS18B20 (água) | vermelho 5V · amarelo D5 · preto GND · ~5k (2×10k em paralelo) entre 5V e amarelo |
+| DS18B20 (projetor) | vermelho 5V · amarelo D5 · preto GND · ~5k (2×10k em paralelo) entre 5V e amarelo |
 | LDR | 5V → LDR → A0 → 10k → GND |
 | RC522 (RFID) | SDA D10 · SCK D13 · MOSI D11 · MISO D12 · RST D9 · 3,3V · GND |
 | Ventoinha (ar) | D6 → 3×680 Ω em paralelo → base do E13009 (esq.) · coletor (meio) no fio preto · emissor (dir.) no GND · fio amarelo no +5V · verde solto |

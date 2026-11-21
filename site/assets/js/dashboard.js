@@ -16,7 +16,7 @@ const app = Vue.createApp({
             suportaSerial: ETI.gateway.suportado,
             serial: { conectado: false, erro: null, linhas: [] },
 
-            form: { tempoInatividade: 30, limiteTemp: 28, umidMin: 40, umidMax: 75, aguaMin: 15, aguaMax: 30 },
+            form: { tempoInatividade: 30, limiteTemp: 28, umidMin: 40, umidMax: 75, equipMax: 40 },
             editando: false,
             simForm: { ativa: false, valor: 30 },
             editandoSim: false,
@@ -60,8 +60,8 @@ const app = Vue.createApp({
                     dados: this.historico.map(p => p.temp)
                 },
                 {
-                    rotulo: 'Água do filtro', cor: '#D1531F', eixo: 'y', unidade: '°C', casas: 1,
-                    dados: this.historico.map(p => p.agua)
+                    rotulo: 'Projetor', cor: '#D1531F', eixo: 'y', unidade: '°C', casas: 1,
+                    dados: this.historico.map(p => p.equip)
                 },
                 {
                     rotulo: 'Umidade', cor: '#8DB6FF', eixo: 'y2', unidade: '%', casas: 0,
@@ -129,7 +129,7 @@ const app = Vue.createApp({
             ETI.data.setConfig({
                 tempoInatividade: tempo,
                 limiteTemp: f.limiteTemp, umidMin: f.umidMin, umidMax: f.umidMax,
-                aguaMin: f.aguaMin, aguaMax: f.aguaMax
+                equipMax: f.equipMax
             })
             ETI.data.enviarComando('TEMPO ' + tempo)
             ETI.data.enviarComando('LIMITE ' + f.limiteTemp)

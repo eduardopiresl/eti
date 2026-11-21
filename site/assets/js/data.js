@@ -11,8 +11,7 @@ window.ETI = window.ETI || {};
     limiteTemp: 28,
     umidMin: 40,
     umidMax: 75,
-    aguaMin: 15,
-    aguaMax: 30,
+    equipMax: 40,
     tempoInatividade: 30,
     arSetpoint: 21,
     tempSimAtiva: false,
@@ -173,10 +172,9 @@ window.ETI = window.ETI || {};
       st.umid < c.umidMin ? 'Ar seco' : 'Ar úmido demais',
       'Umidade de ' + ETI.ui.numero(st.umid) + ' %, fora da faixa de ' + c.umidMin + ' a ' + c.umidMax + ' %.');
 
-    if (st.agua == null) add('ds18b20', 'Sem leitura da água', 'O sensor DS18B20 do filtro não respondeu.');
-    else if (st.agua < c.aguaMin || st.agua > c.aguaMax) add('agua',
-      st.agua > c.aguaMax ? 'Água do filtro quente' : 'Água do filtro fria',
-      'Água a ' + ETI.ui.numero(st.agua, 1) + ' °C, fora da faixa de ' + c.aguaMin + ' a ' + c.aguaMax + ' °C.');
+    if (st.equip == null) add('ds18b20', 'Sem leitura do projetor', 'O sensor DS18B20 do projetor não respondeu.');
+    else if (st.equip > c.equipMax) add('equip', 'Projetor superaquecendo',
+      'Projetor a ' + ETI.ui.numero(st.equip, 1) + ' °C, acima do limite de ' + c.equipMax + ' °C. Verifique a ventilação ou desligue o aparelho.');
 
     return ativos;
   }

@@ -7,7 +7,7 @@
 #define PINO_DHT    2
 #define PINO_PIR    3
 #define PINO_LED    4
-#define PINO_AGUA   5
+#define PINO_EQUIP   5
 #define PINO_AR     6
 #define PINO_RST    9
 #define PINO_SS    10
@@ -26,8 +26,8 @@
 
 MFRC522 rfid(PINO_SS, PINO_RST);
 DHT dht(PINO_DHT, DHT22);
-OneWire umFio(PINO_AGUA);
-DallasTemperature sensorAgua(&umFio);
+OneWire umFio(PINO_EQUIP);
+DallasTemperature sensorEquip(&umFio);
 
 unsigned long presentes[MAX_PESSOAS];
 byte totalPessoas = 0;
@@ -82,9 +82,10 @@ void enviarStatus() {
   ultimaTemp = temperatura;
   float umidade     = dht.readHumidity();
 
-  float agua = sensorAgua.getTempCByIndex(0);
-  if (agua == DEVICE_DISCONNECTED_C) agua = NAN;
-  sensorAgua.requestTemperatures();
+  // DS18B20 colado no projetor: temperatura do equipamento.
+  float equip = sensorEquip.getTempCByIndex(0);
+  if (equip == DEVICE_DISCONNECTED_C) equip = NAN;
+  sensorEquip.requestTemperatures();
 
   int luz = analogRead(PINO_LDR);
   bool movimento = digitalRead(PINO_PIR) == HIGH ||
@@ -94,8 +95,8 @@ void enviarStatus() {
   imprimirNumero(temperatura);
   Serial.print(F(",\"umid\":"));
   imprimirNumero(umidade);
-  Serial.print(F(",\"agua\":"));
-  imprimirNumero(agua);
+  Serial.print(F(",\"equip\":"));
+  imprimirNumero(equip);
   Serial.print(F(",\"luz\":"));
   Serial.print(luz);
   Serial.print(F(",\"claro\":"));
@@ -320,9 +321,9 @@ void setup() {
   rfid.PCD_Init();
   dht.begin();
 
-  sensorAgua.begin();
-  sensorAgua.setWaitForConversion(false);
-  sensorAgua.requestTemperatures();
+  sensorEquip.begin();
+  sensorEquip.setWaitForConversion(false);
+  sensorEquip.requestTemperatures();
 
   pinMode(PINO_PIR, INPUT);
   pinMode(PINO_LED, OUTPUT);

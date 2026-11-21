@@ -40,7 +40,7 @@ window.ETI = window.ETI || {};
       if (Date.now() - ultimoHistorico >= INTERVALO_HISTORICO) {
         ultimoHistorico = Date.now();
         raiz.child('historico').push({
-          temp: ETI.data.tempSala(msg), ar: msg.ar || 0, umid: msg.umid, agua: msg.agua,
+          temp: ETI.data.tempSala(msg), ar: msg.ar || 0, umid: msg.umid, equip: msg.equip,
           luz: msg.luz, pessoas: msg.pessoas, ts: TS
         });
       }

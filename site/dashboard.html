@@ -40,7 +40,7 @@
             <span class="sub">Desde as {{ hora(a.desde) }}</span>
           </div>
         </div>
-        <p v-else class="legenda m-0">Nenhum alerta. Temperatura, umidade, água e presença dentro do esperado.</p>
+        <p v-else class="legenda m-0">Nenhum alerta. Temperatura, umidade, projetor e presença dentro do esperado.</p>
       </section>
 
       <div class="row g-3 mb-3">
@@ -54,8 +54,8 @@
             :fora-do-limite="st.umid != null && (st.umid < config.umidMin || st.umid > config.umidMax)"></card-leitura>
         </div>
         <div class="col-6 col-lg-3">
-          <card-leitura rotulo="Água do filtro" :valor="st.agua == null ? '—' : num(st.agua, 1)" unidade="°C"
-            :fora-do-limite="st.agua != null && (st.agua < config.aguaMin || st.agua > config.aguaMax)"></card-leitura>
+          <card-leitura rotulo="Projetor" :valor="st.equip == null ? '—' : num(st.equip, 1)" unidade="°C"
+            :fora-do-limite="st.equip != null && st.equip > config.equipMax"></card-leitura>
         </div>
         <div class="col-6 col-lg-3">
           <card-leitura rotulo="Luz ambiente" :valor="st.luz == null ? '—' : (st.claro ? 'Clara' : 'Escura')"
@@ -191,12 +191,8 @@
                   <input class="form-control" type="number" id="umidMax" min="0" max="100" v-model.number="form.umidMax">
                 </div>
                 <div class="col-6 col-sm-3">
-                  <label class="form-label" for="aguaMin">Água mín. (°C)</label>
-                  <input class="form-control" type="number" id="aguaMin" min="0" max="60" step="0.5" v-model.number="form.aguaMin">
-                </div>
-                <div class="col-6 col-sm-3">
-                  <label class="form-label" for="aguaMax">Água máx. (°C)</label>
-                  <input class="form-control" type="number" id="aguaMax" min="0" max="60" step="0.5" v-model.number="form.aguaMax">
+                  <label class="form-label" for="equipMax">Projetor máx. (°C)</label>
+                  <input class="form-control" type="number" id="equipMax" min="20" max="90" step="0.5" v-model.number="form.equipMax">
                 </div>
               </div>
 
@@ -255,7 +251,7 @@
       <section class="secao">
         <h2>Histórico</h2>
         <grafico-linha :rotulos="graficoRotulos" :series="graficoSeries"></grafico-linha>
-        <p class="legenda">Temperatura da sala (a simulada, quando estiver ligada) em azul-escuro, água do filtro em laranja e umidade em
+        <p class="legenda">Temperatura da sala (a simulada, quando estiver ligada) em azul-escuro, projetor em laranja e umidade em
           azul-claro (eixo da direita). Um ponto a cada 30 s, última hora.</p>
       </section>
 

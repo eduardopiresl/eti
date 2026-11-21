@@ -35,9 +35,9 @@
   });
 
   document.getElementById('btn-csv-historico').addEventListener('click', function () {
-    const linhas = [['data_hora', 'temperatura_c', 'umidade_pct', 'agua_c', 'luz_0a1023', 'pessoas']];
+    const linhas = [['data_hora', 'temperatura_c', 'umidade_pct', 'projetor_c', 'luz_0a1023', 'pessoas']];
     historico.forEach(function (p) {
-      linhas.push([ETI.ui.dataHora(p.ts), p.temp, p.umid, p.agua, p.luz, p.pessoas]);
+      linhas.push([ETI.ui.dataHora(p.ts), p.temp, p.umid, p.equip, p.luz, p.pessoas]);
     });
     ETI.ui.baixarCsv('leituras-sala.csv', linhas);
   });

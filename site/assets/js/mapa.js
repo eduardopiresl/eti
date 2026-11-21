@@ -8,7 +8,7 @@
   const PORTA = { y1: 252, y2: 328 };
   const PIR = { x: 216, y: 56 };
   const LAMPADA = { x: 560, y: 280 };
-  const FILTRO = { x: 790, y: 430, l: 70, a: 60 };
+  const PROJETOR = { x: 365, y: 265, l: 30, a: 20 };
   const DHT = { x: 870, y: 120 };
   const AR = { x: 852, y: 240, l: 24, a: 100 };
   const RFID = { x: 178, y: 222 };
@@ -320,18 +320,21 @@
     ctx.setLineDash([6, 6]); ctx.stroke(); ctx.setLineDash([]);
     ctx.restore();
 
-    ctx.fillStyle = '#2B6CB0';
-    retang(FILTRO.x, FILTRO.y, FILTRO.l, FILTRO.a, 10); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2;
-    for (let k = 0; k < 3; k++) {
-      ctx.beginPath();
-      for (let wx = 0; wx <= FILTRO.l - 16; wx += 2) {
-        const wy = FILTRO.y + 18 + k * 13 + Math.sin((wx + t / 40) / 7) * 2;
-        if (wx === 0) ctx.moveTo(FILTRO.x + 8 + wx, wy); else ctx.lineTo(FILTRO.x + 8 + wx, wy);
-      }
-      ctx.stroke();
+    // Projetor no teto, apontado para o quadro (parede de cima). O DS18B20 fica colado nele.
+    const quente = st.equip != null && st.equip > (config.equipMax || 40);
+    if (quente) {
+      ctx.beginPath(); ctx.arc(PROJETOR.x + PROJETOR.l / 2, PROJETOR.y + PROJETOR.a / 2, 30 + 4 * Math.sin(t / 150), 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(224,83,58,0.25)'; ctx.fill();
     }
-    etiqueta('Água ' + num(st.agua, 1) + ' °C', FILTRO.x + FILTRO.l / 2, FILTRO.y - 16);
+    ctx.fillStyle = 'rgba(141,182,255,0.18)';
+    ctx.beginPath(); ctx.moveTo(PROJETOR.x + 6, PROJETOR.y); ctx.lineTo(PROJETOR.x - 60, SALA.y1 + 4);
+    ctx.lineTo(PROJETOR.x + PROJETOR.l + 60, SALA.y1 + 4); ctx.lineTo(PROJETOR.x + PROJETOR.l - 6, PROJETOR.y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    retang(PROJETOR.x, PROJETOR.y, PROJETOR.l, PROJETOR.a, 4); ctx.fill();
+    ctx.strokeStyle = quente ? '#E0533A' : '#07296F'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(PROJETOR.x + PROJETOR.l / 2, PROJETOR.y + 4, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#07296F'; ctx.fill();
+    etiqueta('Projetor ' + num(st.equip, 1) + ' °C' + (quente ? ' · quente!' : ''), PROJETOR.x + PROJETOR.l / 2, PROJETOR.y + PROJETOR.a + 14);
 
     if (lampada) {
       const g = ctx.createRadialGradient(LAMPADA.x, LAMPADA.y, 10, LAMPADA.x, LAMPADA.y, 330);
