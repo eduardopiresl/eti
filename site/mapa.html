@@ -9,7 +9,19 @@
 <link href="assets/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
 <link href="assets/css/eti.css" rel="stylesheet">
 <style>
-  .mapa-tela { position: relative; }
+  .pagina-mapa { max-width: 1440px; }
+  .mapa-tela { position: relative; padding: 16px; }
+  .row > * > .secao.mapa-tela { height: auto; }
+  .controles { padding-top: 8px; }
+  .controles > .bloco:first-child, .controles > .bloco[hidden] + .bloco { margin-top: 0; padding-top: 12px; border-top: 0; }
+  .como summary { cursor: pointer; font-weight: 600; color: var(--tinta); }
+  .como ol { margin-top: 8px; }
+  .controles .bloco + .bloco { margin-top: 14px; padding-top: 14px; }
+  @media (min-width: 992px) {
+    /* Mapa e controles ficam presos na tela: o mapa não some enquanto você usa os botões. */
+    .mapa-col, .controles-col { position: sticky; top: 16px; }
+    .controles { max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain; }
+  }
   #mapa { display: block; width: 100%; aspect-ratio: 900 / 560; border-radius: 8px; background: #E9EEF7; touch-action: none; cursor: pointer; outline: none; }
   #mapa:focus-visible { box-shadow: 0 0 0 3px var(--peri); }
   .bonecos { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -24,7 +36,7 @@
 </head>
 <body>
 
-<div class="pagina">
+<div class="pagina pagina-mapa">
 
   <div class="topo">
     <a class="marca" href="dashboard.html"><img src="assets/img/logo-eti.svg" alt="">ETI</a>
@@ -33,43 +45,40 @@
 
   <header class="cabecalho">
     <h1>Mapa da sala</h1>
-    <p>Gêmeo digital: o que acontece aqui acontece na placa, e o que acontece na placa aparece aqui.
-      A porta só abre com o cartão de verdade, e o boneco andando dentro da sala (o sensor de presença cobre a sala toda)
-      conta como movimento para o Arduino.</p>
+    <p>Gêmeo digital: o que acontece aqui acontece na placa, e o que acontece na placa aparece aqui.</p>
   </header>
 
-  <div class="row g-3 mb-3">
+  <div class="row g-3 mb-3 align-items-start">
 
-    <div class="col-lg-8">
+    <div class="col-lg-8 mapa-col">
       <section class="secao mapa-tela">
         <canvas id="mapa" tabindex="0" aria-label="Mapa da sala. Use as setas para andar com o boneco escolhido."></canvas>
-        <p class="legenda mb-0" id="dica"></p>
+        <p class="legenda mb-0 mt-2" id="dica"></p>
       </section>
     </div>
 
-    <div class="col-lg-4">
-      <section class="secao">
-        <h2>Bonecos</h2>
-        <p class="legenda mt-0">Cada cartão é um boneco. Escolha um e ande com as setas, com W A S D
-          ou clicando no mapa.</p>
-        <div class="bonecos mb-3" id="lista-bonecos"></div>
-        <div class="teclas mb-2" aria-label="Setas na tela">
-          <span></span>
-          <button type="button" class="btn btn-outline-primary" data-tecla="ArrowUp" aria-label="Para cima"><i class="bi bi-arrow-up"></i></button>
-          <span></span>
-          <button type="button" class="btn btn-outline-primary" data-tecla="ArrowLeft" aria-label="Para a esquerda"><i class="bi bi-arrow-left"></i></button>
-          <button type="button" class="btn btn-outline-primary" data-tecla="ArrowDown" aria-label="Para baixo"><i class="bi bi-arrow-down"></i></button>
-          <button type="button" class="btn btn-outline-primary" data-tecla="ArrowRight" aria-label="Para a direita"><i class="bi bi-arrow-right"></i></button>
+    <div class="col-lg-4 controles-col">
+      <section class="secao controles">
+        <div class="bloco bloco-arduino" id="bloco-serial" hidden>
+          <h3>Arduino</h3>
+          <button type="button" class="btn btn-primary" id="btn-serial">
+            <i class="bi bi-usb-symbol" aria-hidden="true"></i> <span>Conectar Arduino</span>
+          </button>
+          <p class="legenda" id="erro-serial" hidden></p>
         </div>
 
         <div class="bloco">
-          <h3>Como entrar e sair</h3>
-          <ol class="legenda mt-0 ps-3">
-            <li>Passe o cartão do boneco no leitor de verdade: a porta do mapa abre.</li>
-            <li>Leve o boneco para dentro da sala: o sensor de presença cobre a sala toda.</li>
-            <li>O Arduino confirma a entrada e acende a lâmpada se estiver escuro. Se a sala passar do limite de calor, o ar liga.</li>
-            <li>Para sair, passe o mesmo cartão de novo: o boneco sai sozinho.</li>
-          </ol>
+          <h3>Bonecos</h3>
+          <p class="legenda mt-0 mb-2">Escolha um e ande com as setas, W A S D ou clicando no mapa.</p>
+          <div class="bonecos mb-3" id="lista-bonecos"></div>
+          <div class="teclas mb-2" aria-label="Setas na tela">
+            <span></span>
+            <button type="button" class="btn btn-outline-primary" data-tecla="ArrowUp" aria-label="Para cima"><i class="bi bi-arrow-up"></i></button>
+            <span></span>
+            <button type="button" class="btn btn-outline-primary" data-tecla="ArrowLeft" aria-label="Para a esquerda"><i class="bi bi-arrow-left"></i></button>
+            <button type="button" class="btn btn-outline-primary" data-tecla="ArrowDown" aria-label="Para baixo"><i class="bi bi-arrow-down"></i></button>
+            <button type="button" class="btn btn-outline-primary" data-tecla="ArrowRight" aria-label="Para a direita"><i class="bi bi-arrow-right"></i></button>
+          </div>
         </div>
 
         <div class="bloco">
@@ -108,18 +117,21 @@
           </div>
         </div>
 
-        <div class="bloco" id="bloco-serial" hidden>
-          <h3>Arduino</h3>
-          <button type="button" class="btn btn-primary" id="btn-serial">
-            <i class="bi bi-usb-symbol" aria-hidden="true"></i> <span>Conectar Arduino</span>
-          </button>
-          <p class="legenda" id="erro-serial" hidden></p>
-        </div>
-
         <div class="bloco">
           <h3>Últimos acontecimentos</h3>
           <ul class="eventos-mapa" id="eventos"></ul>
         </div>
+
+        <details class="bloco como">
+          <summary>Como entrar e sair</summary>
+          <h3>Como entrar e sair</h3>
+          <ol class="legenda mt-0 ps-3">
+            <li>Passe o cartão do boneco no leitor de verdade: a porta do mapa abre.</li>
+            <li>Leve o boneco para dentro da sala: o sensor de presença cobre a sala toda.</li>
+            <li>O Arduino confirma a entrada e acende a lâmpada se estiver escuro. Se a sala passar do limite de calor, o ar liga.</li>
+            <li>Para sair, passe o mesmo cartão de novo: o boneco sai sozinho.</li>
+          </ol>
+        </details>
       </section>
     </div>
 
