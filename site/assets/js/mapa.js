@@ -24,6 +24,13 @@
   const INTERVALO_MOV = 4000;
   const PORTA_ENTRADA_MS = 15000;
   const PORTA_PASSAGEM_MS = 7000;
+  const INTRUSO = 'INTRUSO';
+  const COR_INTRUSO = '#1E1E1E';
+  // Volta que o intruso dá dentro da sala (o sensor de presença vê a sala toda).
+  const RONDA_INTRUSO = [
+    { x: 420, y: 280 }, { x: 780, y: 280 }, { x: 600, y: 470 }, { x: 330, y: 470 },
+    { x: 420, y: 280 }, { x: 780, y: 280 }, { x: 600, y: 470 }, { x: 330, y: 470 }
+  ];
 
   const canvas = document.getElementById('mapa');
   const ctx = canvas.getContext('2d');
@@ -46,6 +53,7 @@
   let refBonecos = null;
   let config = {};
 
+
   function agora() { return Date.now(); }
 
   function portaAberta(uid) { return (portaPara[uid] || 0) > agora(); }
@@ -63,7 +71,10 @@
     return x > SALA.x1 + R && x < SALA.x2 && y > SALA.y1 && y < SALA.y2;
   }
 
-  function nome(uid) { return ETI.data.nomeCartao(uid).replace(/^Cartão /, ''); }
+  function nome(uid) {
+    if (uid === INTRUSO) return 'Intruso';
+    return ETI.data.nomeCartao(uid).replace(/^Cartão /, '');
+  }
 
   function criarBoneco(uid) {
     if (bonecos[uid]) return bonecos[uid];
@@ -186,11 +197,12 @@
       case 'zerado':
       case 'inicio':
         ordem.forEach(function (uid) {
-          if (naSala(bonecos[uid].x)) andarPor(bonecos[uid], SAIDA, true);
+          if (uid !== INTRUSO && naSala(bonecos[uid].x)) andarPor(bonecos[uid], SAIDA, true);
         });
         break;
       case 'intruso':
         avisoIntruso = agora();
+        if (bonecos[INTRUSO]) mostrarCenario('O Arduino detectou movimento sem cartão: alerta de intruso disparado!');
         break;
     }
   }
@@ -199,7 +211,7 @@
   function removerSemEventos(lista) {
     const usados = new Set(lista.map(function (e) { return e.cartao; }).filter(Boolean));
     ordem.slice().forEach(function (uid) {
-      if (usados.has(uid)) return;
+      if (usados.has(uid) || uid === INTRUSO) return;
       delete bonecos[uid];
       ordem.splice(ordem.indexOf(uid), 1);
       if (selecionado === uid) selecionado = ordem[0] || null;
@@ -235,6 +247,7 @@
   }
 
   function salvarPosicao(b) {
+    if (b.uid === INTRUSO) return;
     if (refBonecos) refBonecos.child(b.uid).set({ x: Math.round(b.x), y: Math.round(b.y), ts: firebase.database.ServerValue.TIMESTAMP });
   }
 
@@ -562,12 +575,75 @@
     let d;
     if (!online) d = 'Conecte o Arduino para a porta e o sensor funcionarem.';
     else if (!b) d = 'Passe um cartão no leitor para o boneco dele aparecer.';
+    else if (b.uid === INTRUSO) d = 'O intruso está na sala sem ter passado cartão. Quando ele anda, o sensor de presença avisa o Arduino, que dispara o alerta.';
     else if (!naSala(b.x) && portaAberta(b.uid)) d = 'Porta aberta para ' + nome(b.uid) + '. Entre na sala para o sensor de presença ver.';
     else if (!naSala(b.x)) d = nome(b.uid) + ' está no corredor. Passe o cartão dele no leitor para abrir a porta.';
     else if (naZonaPir(b.x, b.y)) d = nome(b.uid) + ' está na sala. Andando, o sensor de presença manda movimento para o Arduino; para sair, passe o cartão de novo.';
     else d = nome(b.uid) + ' está na sala. Para sair, passe o cartão dele de novo.';
     if (d !== ultimaDica) { ultimaDica = d; document.getElementById('dica').textContent = d; }
   }
+
+  // ---------- Cenários de teste ----------
+  function mostrarCenario(txt) {
+    const el = document.getElementById('cenario-msg');
+    el.textContent = txt;
+    el.hidden = !txt;
+  }
+
+  function atualizarBotaoIntruso() {
+    const ativo = !!bonecos[INTRUSO];
+    document.querySelector('#cen-intruso span').textContent = ativo ? 'Tirar o intruso' : 'Intruso na sala';
+  }
+
+  function removerIntruso() {
+    if (!bonecos[INTRUSO]) return;
+    delete bonecos[INTRUSO];
+    ordem.splice(ordem.indexOf(INTRUSO), 1);
+    if (selecionado === INTRUSO) selecionado = ordem[0] || null;
+    desenharLista();
+    atualizarBotaoIntruso();
+  }
+
+  function cenarioIntruso() {
+    if (bonecos[INTRUSO]) {
+      removerIntruso();
+      mostrarCenario('');
+      return;
+    }
+    if (!online) {
+      mostrarCenario('Conecte o Arduino primeiro: é ele que decide se é intruso.');
+      return;
+    }
+    if (st.pessoas > 0) {
+      mostrarCenario('O Arduino conta ' + st.pessoas + (st.pessoas === 1 ? ' pessoa' : ' pessoas') +
+        ' na sala. O intruso só é detectado com a sala vazia: use "Limpar tudo" ou passe os cartões para sair.');
+      return;
+    }
+    const b = { uid: INTRUSO, cor: COR_INTRUSO, x: 330, y: 280, caminho: [], local: 0, remoto: null };
+    bonecos[INTRUSO] = b;
+    ordem.push(INTRUSO);
+    selecionado = INTRUSO;
+    ultimoMovEnviado = 0;
+    b.caminho = RONDA_INTRUSO.map(function (p) { return { x: p.x, y: p.y }; });
+    b.peloUsuario = true;
+    desenharLista();
+    atualizarBotaoIntruso();
+    mostrarCenario('Alguém entrou sem passar cartão e está andando na sala. Aguarde o sensor de presença avisar o Arduino...');
+  }
+
+  function limparTudo() {
+    const msg = 'Apagar TODOS os dados de teste?' + String.fromCharCode(10, 10) +
+      'Eventos, gráfico, cartões, bonecos do mapa e a contagem de pessoas. ' +
+      'As regras (limites, ar, simulada) continuam. Não dá para desfazer.';
+    if (!confirm(msg)) return;
+    removerIntruso();
+    ETI.data.limparTudo()
+      .then(function () { mostrarCenario('Dados de teste apagados.'); })
+      .catch(function (e) { mostrarCenario('Erro ao limpar: ' + e.message); });
+  }
+
+  document.getElementById('cen-intruso').addEventListener('click', cenarioIntruso);
+  document.getElementById('cen-limpar').addEventListener('click', limparTudo);
 
   if (ETI.gateway && ETI.gateway.suportado) {
     const bloco = document.getElementById('bloco-serial');
