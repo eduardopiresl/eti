@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/img/logo-eti.svg">
+<title>Registro — ETI</title>
+<link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+<link href="assets/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+<link href="assets/css/eti.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="pagina">
+
+  <div class="topo nao-imprime">
+    <a class="marca" href="dashboard.html"><img src="assets/img/logo-eti.svg" alt="">ETI</a>
+    <nav class="menu" data-menu aria-label="Seções"></nav>
+  </div>
+
+  <header class="cabecalho">
+    <h1>Registro da sala</h1>
+    <p>Tudo o que o Arduino contou: entradas e saídas pelo cartão, movimentos, lâmpada e alertas.
+      Leituras reais, gravadas no Firebase.</p>
+  </header>
+
+  <section class="secao mb-3">
+    <h2>Eventos</h2>
+    <div class="d-flex flex-wrap gap-2 mb-3 nao-imprime">
+      <button type="button" class="btn btn-primary" id="btn-csv-eventos">
+        <i class="bi bi-download" aria-hidden="true"></i> Baixar eventos (CSV)
+      </button>
+      <button type="button" class="btn btn-outline-primary" id="btn-csv-historico">
+        <i class="bi bi-download" aria-hidden="true"></i> Baixar leituras (CSV)
+      </button>
+      <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+        <i class="bi bi-printer" aria-hidden="true"></i> Imprimir
+      </button>
+      <button type="button" class="btn btn-outline-primary" id="btn-limpar">
+        <i class="bi bi-trash" aria-hidden="true"></i> Apagar registro
+      </button>
+    </div>
+    <div id="eventos"><p class="legenda">Carregando…</p></div>
+  </section>
+
+  <p class="nota">Mostra os 80 eventos mais recentes. As leituras do CSV são um ponto a cada 30 s da última hora.</p>
+
+</div>
+
+<script src="assets/vendor/firebase/firebase-app-compat.js"></script>
+<script src="assets/vendor/firebase/firebase-database-compat.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/relatorio.js"></script>
+</body>
+</html>

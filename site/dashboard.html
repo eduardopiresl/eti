@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="assets/img/logo-eti.svg">
+  <title>Sala — ETI</title>
+  <link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="assets/css/eti.css" rel="stylesheet">
+  <script src="assets/vendor/vue.global.prod.js"></script>
+</head>
+
+<body>
+
+  <div class="pagina">
+
+    <div class="topo">
+      <a class="marca" href="dashboard.html"><img src="assets/img/logo-eti.svg" alt="">ETI</a>
+      <nav class="menu" data-menu aria-label="Seções"></nav>
+    </div>
+
+    <div id="app" v-cloak>
+
+      <header class="cabecalho">
+        <h1>{{ sala.nome }}</h1>
+        <p>
+          {{ sala.bloco }}.
+          <status-sala :online="online" :pessoas="st.pessoas || 0" :lampada="!!st.lampada"></status-sala>
+        </p>
+      </header>
+
+      <section class="secao alertas" :class="{ 'com-alerta': alertas.length }" aria-live="polite">
+        <h2>Alertas da sala</h2>
+        <div v-if="alertas.length">
+          <div class="alerta" v-for="a in alertas" :key="a.id">
+            <strong>{{ a.titulo }}</strong>
+            <span>{{ a.texto }}</span>
+            <span class="sub">Desde as {{ hora(a.desde) }}</span>
+          </div>
+        </div>
+        <p v-else class="legenda m-0">Nenhum alerta. Temperatura, umidade, água e presença dentro do esperado.</p>
+      </section>
+
+      <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3">
+          <card-leitura rotulo="Temperatura" :valor="st.temp == null ? '—' : num(st.temp, 1)" unidade="°C"
+            :fora-do-limite="st.temp != null && st.temp > config.limiteTemp"></card-leitura>
+        </div>
+        <div class="col-6 col-lg-3">
+          <card-leitura rotulo="Umidade" :valor="st.umid == null ? '—' : num(st.umid)" unidade="%"
+            :fora-do-limite="st.umid != null && (st.umid < config.umidMin || st.umid > config.umidMax)"></card-leitura>
+        </div>
+        <div class="col-6 col-lg-3">
+          <card-leitura rotulo="Água do filtro" :valor="st.agua == null ? '—' : num(st.agua, 1)" unidade="°C"
+            :fora-do-limite="st.agua != null && (st.agua < config.aguaMin || st.agua > config.aguaMax)"></card-leitura>
+        </div>
+        <div class="col-6 col-lg-3">
+          <card-leitura rotulo="Luz ambiente" :valor="st.luz == null ? '—' : (st.claro ? 'Clara' : 'Escura')"
+            :unidade="st.luz == null ? '' : ' ' + luzPct + '%'">
+            <div class="barra" aria-hidden="true"><span :style="{ width: luzPct + '%' }"></span></div>
+          </card-leitura>
+        </div>
+        <div class="col-6 col-lg-3">
+          <card-leitura rotulo="Pessoas na sala" :valor="st.pessoas == null ? '—' : st.pessoas"
+            :unidade="st.porta ? ' · porta liberada' : ''"></card-leitura>
+        </div>
+        <div class="col-6 col-lg-3">
+          <card-leitura rotulo="Movimento" :valor="st.mov ? 'Detectado' : 'Parado'"></card-leitura>
+        </div>
+        <div class="col-6 col-lg-3">
+          <card-leitura rotulo="Lâmpada (LED)" :valor="st.lampada ? 'Acesa' : 'Apagada'"></card-leitura>
+        </div>
+        <div class="col-6 col-lg-3">
+          <card-leitura rotulo="Arduino" :valor="online ? 'Ao vivo' : 'Sem sinal'"
+            :unidade="st.ts ? ' · ' + hora(st.ts) : ''" :fora-do-limite="!online"></card-leitura>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+
+        <div class="col-lg-6">
+          <section class="secao">
+            <h2>Controle da sala</h2>
+
+            <div class="bloco">
+              <h3>Lâmpada</h3>
+              <p class="legenda mt-0">Os comandos vão para o Arduino pelo computador que está com ele na USB.</p>
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                <button type="button" class="btn btn-primary" @click="comando('LUZ 1')" :disabled="!online">
+                  <i class="bi bi-lightbulb-fill" aria-hidden="true"></i> Acender
+                </button>
+                <button type="button" class="btn btn-outline-primary" @click="comando('LUZ 0')" :disabled="!online">
+                  <i class="bi bi-lightbulb-off" aria-hidden="true"></i> Apagar
+                </button>
+              </div>
+            </div>
+
+            <div class="bloco">
+              <h3>Teste e manutenção</h3>
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                <button type="button" class="btn btn-outline-primary" @click="comando('MOV')" :disabled="!online">
+                  <i class="bi bi-person-walking" aria-hidden="true"></i> Simular movimento
+                </button>
+                <button type="button" class="btn btn-outline-primary" @click="zerar" :disabled="!online">
+                  <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Zerar contagem
+                </button>
+              </div>
+              <p class="legenda" v-if="enviado">{{ enviado }}</p>
+            </div>
+
+            <div class="bloco">
+              <h3>Quem está na sala</h3>
+              <table class="table" v-if="presentes.length">
+                <tbody>
+                  <tr v-for="p in presentes" :key="p.cartao">
+                    <td>{{ nomeCartao(p.cartao) }}</td>
+                    <td class="n">desde {{ hora(p.desde) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="legenda mt-0" v-else>Ninguém registrado pelo cartão.</p>
+            </div>
+          </section>
+        </div>
+
+        <div class="col-lg-6">
+          <section class="secao">
+            <h2>Regras</h2>
+
+            <form @submit.prevent="salvarRegras" @focusin="editando = true" @focusout="editando = false">
+              <div class="row g-3 mb-3">
+                <div class="col-sm-6">
+                  <label class="form-label" for="tempo">Apagar a luz sem movimento após (s)</label>
+                  <input class="form-control" type="number" id="tempo" min="5" max="3600" step="1"
+                    v-model.number="form.tempoInatividade">
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label" for="limiteTemp">Alerta de calor acima de (°C)</label>
+                  <input class="form-control" type="number" id="limiteTemp" min="16" max="40" step="0.5"
+                    v-model.number="form.limiteTemp">
+                </div>
+                <div class="col-6 col-sm-3">
+                  <label class="form-label" for="umidMin">Umidade mín. (%)</label>
+                  <input class="form-control" type="number" id="umidMin" min="0" max="100" v-model.number="form.umidMin">
+                </div>
+                <div class="col-6 col-sm-3">
+                  <label class="form-label" for="umidMax">Umidade máx. (%)</label>
+                  <input class="form-control" type="number" id="umidMax" min="0" max="100" v-model.number="form.umidMax">
+                </div>
+                <div class="col-6 col-sm-3">
+                  <label class="form-label" for="aguaMin">Água mín. (°C)</label>
+                  <input class="form-control" type="number" id="aguaMin" min="0" max="60" step="0.5" v-model.number="form.aguaMin">
+                </div>
+                <div class="col-6 col-sm-3">
+                  <label class="form-label" for="aguaMax">Água máx. (°C)</label>
+                  <input class="form-control" type="number" id="aguaMax" min="0" max="60" step="0.5" v-model.number="form.aguaMax">
+                </div>
+              </div>
+
+              <div class="d-flex align-items-center gap-3">
+                <button type="submit" class="btn btn-primary">
+                  <i class="bi bi-check2" aria-hidden="true"></i> Salvar regras
+                </button>
+                <span class="legenda m-0" v-if="regrasSalvas">Regras salvas.</span>
+              </div>
+            </form>
+
+            <div class="bloco">
+              <h3>Cartões</h3>
+              <p class="legenda mt-0 mb-2">Dê um nome a cada cartão que já passou no leitor.</p>
+              <div class="d-flex gap-2 mb-2 align-items-center" v-for="uid in cartoesVistos" :key="uid">
+                <code style="min-width: 7em">{{ uid }}</code>
+                <input class="form-control" type="text" maxlength="30" :value="config.nomes[uid] || ''"
+                  placeholder="Nome da pessoa" @change="nomear(uid, $event.target.value)">
+              </div>
+              <p class="legenda mt-0" v-if="!cartoesVistos.length">Nenhum cartão lido ainda.</p>
+            </div>
+          </section>
+        </div>
+
+      </div>
+
+      <section class="secao mb-3">
+        <h2>Conexão com o Arduino</h2>
+        <p class="legenda mt-0">Só o computador com o Arduino ligado na USB precisa conectar.
+          Os outros (celular, projetor) só assistem.
+          <template v-if="gateway && gateway.online"> Agora há um computador conectado desde as {{ hora(gateway.desde) }}.</template>
+        </p>
+        <template v-if="suportaSerial">
+          <button type="button" class="btn" :class="serial.conectado ? 'btn-outline-primary' : 'btn-primary'"
+            @click="alternarSerial">
+            <i class="bi" :class="serial.conectado ? 'bi-usb-plug' : 'bi-usb-symbol'" aria-hidden="true"></i>
+            {{ serial.conectado ? 'Desconectar Arduino' : 'Conectar Arduino' }}
+          </button>
+          <p class="legenda" v-if="serial.erro">{{ serial.erro }}</p>
+          <pre class="mt-3 mb-0 p-2 small" style="background: var(--fundo); border-radius: 8px; max-height: 14em; overflow: auto"
+            v-if="serial.conectado">{{ linhasSerial }}</pre>
+        </template>
+        <p class="legenda" v-else>Este navegador não fala com a USB. Para conectar o Arduino, abra o site no Chrome ou no Edge do computador.</p>
+      </section>
+
+      <section class="secao">
+        <h2>Histórico</h2>
+        <grafico-linha :rotulos="graficoRotulos" :series="graficoSeries"></grafico-linha>
+        <p class="legenda">Temperatura da sala em azul-escuro, água do filtro em laranja e umidade em
+          azul-claro (eixo da direita). Um ponto a cada 30 s, última hora.</p>
+      </section>
+
+    </div>
+
+  </div>
+
+  <script src="assets/vendor/chart.umd.js"></script>
+  <script src="assets/vendor/firebase/firebase-app-compat.js"></script>
+  <script src="assets/vendor/firebase/firebase-database-compat.js"></script>
+  <script src="assets/js/firebase-config.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/serial.js"></script>
+
+  <script src="assets/js/dashboard.js"></script>
+
+  <script src="assets/js/components/CardLeitura.js"></script>
+  <script src="assets/js/components/StatusSala.js"></script>
+  <script src="assets/js/components/GraficoLinha.js"></script>
+
+  <script>
+    const mountedApp = app.mount('#app')
+  </script>
+</body>
+
+</html>

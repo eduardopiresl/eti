@@ -1,0 +1,51 @@
+(function () {
+  if (!ETI.ui.exigirSessao(true)) return;
+
+  ETI.ui.montarTopo('relatorio.html');
+
+  let eventos = [];
+  let historico = [];
+
+  function desenhar() {
+    document.getElementById('eventos').innerHTML = eventos.length
+      ? '<div class="table-responsive"><table class="table"><thead><tr>' +
+        '<th>Quando</th><th>O que aconteceu</th><th class="n">Pessoas</th>' +
+        '</tr></thead><tbody>' +
+        eventos.map(function (e) {
+          return '<tr><td style="white-space:nowrap">' + ETI.ui.dataHora(e.ts) + '</td>' +
+            '<td>' + ETI.ui.escapar(ETI.data.descreverEvento(e)) + '</td>' +
+            '<td class="n">' + (e.pessoas == null ? '' : e.pessoas) + '</td></tr>';
+        }).join('') +
+        '</tbody></table></div>'
+      : '<p class="vazio" style="padding:0">Nenhum evento ainda. Conecte o Arduino no dashboard.</p>';
+  }
+
+  ETI.data.onEventos(function (e) { eventos = e; desenhar(); });
+  ETI.data.onConfig(function () { desenhar(); });
+  ETI.data.onHistorico(function (h) { historico = h; });
+
+  document.getElementById('btn-csv-eventos').addEventListener('click', function () {
+    const linhas = [['data_hora', 'acao', 'cartao', 'nome', 'pessoas', 'descricao']];
+    eventos.slice().reverse().forEach(function (e) {
+      linhas.push([ETI.ui.dataHora(e.ts), e.acao, e.cartao || '',
+        e.cartao ? ETI.data.nomeCartao(e.cartao) : '', e.pessoas == null ? '' : e.pessoas,
+        ETI.data.descreverEvento(e)]);
+    });
+    ETI.ui.baixarCsv('eventos-sala.csv', linhas);
+  });
+
+  document.getElementById('btn-csv-historico').addEventListener('click', function () {
+    const linhas = [['data_hora', 'temperatura_c', 'umidade_pct', 'agua_c', 'luz_0a1023', 'pessoas']];
+    historico.forEach(function (p) {
+      linhas.push([ETI.ui.dataHora(p.ts), p.temp, p.umid, p.agua, p.luz, p.pessoas]);
+    });
+    ETI.ui.baixarCsv('leituras-sala.csv', linhas);
+  });
+
+  document.getElementById('btn-limpar').addEventListener('click', function () {
+    if (confirm('Apagar todos os eventos e leituras guardados? Não dá para desfazer.')) {
+      ETI.data.limparEventos();
+      ETI.data.limparHistorico();
+    }
+  });
+})();

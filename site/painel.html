@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/img/logo-eti.svg">
+<title>Painel — ETI</title>
+<link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+<link href="assets/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+<link href="assets/css/eti.css" rel="stylesheet">
+<script src="assets/vendor/vue.global.prod.js"></script>
+</head>
+<body>
+
+<main class="tv" id="app" v-cloak>
+
+  <header class="tv-topo">
+    <span class="d-flex align-items-center gap-3">
+      <img src="assets/img/logo-eti.svg" alt="">
+      <span>{{ sala.nome }}</span>
+    </span>
+    <span class="tv-hora">{{ hora }}</span>
+  </header>
+
+  <section class="tv-corpo" :class="{ 'tv-alerta': atual && atual.alerta }" aria-live="polite">
+    <span class="tv-tipo" v-if="atual && atual.alerta">Alerta da sala</span>
+    <h2>{{ atual ? atual.titulo : sala.nome }}</h2>
+    <p>{{ atual ? atual.texto : 'Nenhum comunicado publicado.' }}</p>
+  </section>
+
+  <footer class="tv-rodape">
+    <card-leitura escuro rotulo="Temperatura" :valor="st.temp == null ? '—' : num(st.temp, 1)" unidade="°C"
+      :fora-do-limite="st.temp != null && st.temp > config.limiteTemp"></card-leitura>
+    <card-leitura escuro rotulo="Umidade" :valor="st.umid == null ? '—' : num(st.umid)" unidade="%"></card-leitura>
+    <card-leitura escuro rotulo="Água do filtro" :valor="st.agua == null ? '—' : num(st.agua, 1)" unidade="°C"></card-leitura>
+    <card-leitura escuro rotulo="Pessoas" :valor="st.pessoas == null ? '—' : st.pessoas"></card-leitura>
+    <card-leitura escuro rotulo="Lâmpada" :valor="st.lampada ? 'Acesa' : 'Apagada'"></card-leitura>
+    <span class="tv-estado">
+      <status-sala curto :online="online" :pessoas="st.pessoas || 0" :lampada="!!st.lampada"></status-sala>
+    </span>
+  </footer>
+
+</main>
+
+<script src="assets/vendor/firebase/firebase-app-compat.js"></script>
+<script src="assets/vendor/firebase/firebase-database-compat.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/data.js"></script>
+
+<script src="assets/js/painel.js"></script>
+
+<script src="assets/js/components/CardLeitura.js"></script>
+<script src="assets/js/components/StatusSala.js"></script>
+
+<script>
+  const mountedApp = app.mount('#app')
+</script>
+</body>
+</html>
