@@ -111,6 +111,15 @@ const app = Vue.createApp({
         zerar() {
             if (confirm('Zerar a contagem de pessoas no Arduino?')) this.comando('ZERAR')
         },
+        limparTudo() {
+            const msg = 'Apagar TODOS os dados de teste?\n\n' +
+                '• eventos e gráfico\n• cartões e seus nomes\n• bonecos do mapa\n• contagem de pessoas\n\n' +
+                'As regras (limites, ar, simulada) continuam. Não dá para desfazer.'
+            if (!confirm(msg)) return
+            ETI.data.limparTudo()
+                .then(() => this.avisar('Dados de teste apagados.'))
+                .catch(e => this.avisar('Erro ao limpar: ' + e.message))
+        },
         nomear(uid, nome) {
             ETI.data.setNomeCartao(uid, nome.trim())
         },

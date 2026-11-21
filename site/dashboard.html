@@ -218,6 +218,16 @@
               </div>
               <p class="legenda mt-0" v-if="!cartoesVistos.length">Nenhum cartão lido ainda.</p>
             </div>
+
+            <div class="bloco">
+              <h3>Limpar dados de teste</h3>
+              <p class="legenda mt-0 mb-2">Apaga eventos, gráfico, cartões, bonecos do mapa e zera a contagem.
+                As regras continuam salvas.</p>
+              <button type="button" class="btn btn-outline-danger" @click="limparTudo">
+                <i class="bi bi-trash3" aria-hidden="true"></i> Limpar tudo
+              </button>
+              <p class="legenda mt-2 mb-0" v-if="enviado">{{ enviado }}</p>
+            </div>
           </section>
         </div>
 

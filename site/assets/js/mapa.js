@@ -195,7 +195,20 @@
     }
   }
 
+  // Se os dados de teste foram apagados, some com os bonecos que não aparecem mais.
+  function removerSemEventos(lista) {
+    const usados = new Set(lista.map(function (e) { return e.cartao; }).filter(Boolean));
+    ordem.slice().forEach(function (uid) {
+      if (usados.has(uid)) return;
+      delete bonecos[uid];
+      ordem.splice(ordem.indexOf(uid), 1);
+      if (selecionado === uid) selecionado = ordem[0] || null;
+    });
+    desenharLista();
+  }
+
   function receberEventos(lista) {
+    removerSemEventos(lista);
     lista.forEach(function (e) { if (e.cartao) criarBoneco(e.cartao); });
     if (primeiraCarga) {
       lista.forEach(function (e) { vistos.add(e.id); });

@@ -262,6 +262,18 @@ window.ETI = window.ETI || {};
     limparEventos: function () { return raiz.child('eventos').remove(); },
     limparHistorico: function () { return raiz.child('historico').remove(); },
 
+    // Apaga os dados de teste: eventos, gráfico, nomes dos cartões e bonecos do mapa.
+    // As regras (limites, ar, simulada) ficam. Depois zera a contagem no Arduino.
+    limparTudo: function () {
+      return raiz.update({
+        eventos: null,
+        historico: null,
+        comandos: null,
+        mapa: null,
+        'config/nomes': null
+      }).then(function () { return ETI.data.enviarComando('ZERAR'); });
+    },
+
     addAviso: function (a) {
       return db.ref('avisos').push({
         titulo: a.titulo, texto: a.texto, ativo: true,
