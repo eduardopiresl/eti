@@ -6,7 +6,7 @@
   const SALA = { x1: 210, y1: 50, x2: 880, y2: 510 };
   const CORREDOR = { x1: 10, y1: 10, x2: 192, y2: 550 };
   const PORTA = { y1: 252, y2: 328 };
-  const PIR = { x: 330, y: 54, raio: 270, de: 25, ate: 155 };
+  const PIR = { x: 216, y: 56 };
   const LAMPADA = { x: 560, y: 280 };
   const FILTRO = { x: 790, y: 430, l: 70, a: 60 };
   const DHT = { x: 870, y: 120 };
@@ -60,10 +60,7 @@
   }
 
   function naZonaPir(x, y) {
-    const dx = x - PIR.x, dy = y - PIR.y;
-    if (Math.hypot(dx, dy) > PIR.raio) return false;
-    const ang = Math.atan2(dy, dx) * 180 / Math.PI;
-    return ang >= PIR.de && ang <= PIR.ate && naSala(x);
+    return x > SALA.x1 + R && x < SALA.x2 && y > SALA.y1 && y < SALA.y2;
   }
 
   function nome(uid) { return ETI.data.nomeCartao(uid).replace(/^Cartão /, ''); }
@@ -289,12 +286,7 @@
     const movAtivo = !!st.mov || t - avisoMov < 1500;
     ctx.save();
     ctx.beginPath();
-    ctx.rect(SALA.x1, SALA.y1, SALA.x2 - SALA.x1, SALA.y2 - SALA.y1);
-    ctx.clip();
-    ctx.beginPath();
-    ctx.moveTo(PIR.x, PIR.y);
-    ctx.arc(PIR.x, PIR.y, PIR.raio, PIR.de * Math.PI / 180, PIR.ate * Math.PI / 180);
-    ctx.closePath();
+    ctx.rect(SALA.x1 + 6, SALA.y1 + 6, SALA.x2 - SALA.x1 - 12, SALA.y2 - SALA.y1 - 12);
     const pulso = 0.18 + 0.1 * Math.sin(t / 150);
     ctx.fillStyle = movAtivo ? 'rgba(209,83,31,' + pulso + ')' : 'rgba(141,182,255,0.16)';
     ctx.fill();
@@ -387,9 +379,9 @@
     texto('RFID', RFID.x - 38, RFID.y, '#5A6C9C', 11, 'center', 600);
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath(); ctx.arc(PIR.x, PIR.y + 2, 11, 0, Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(PIR.x - 6, PIR.y - 6); ctx.arc(PIR.x - 6, PIR.y - 6, 16, 0, Math.PI / 2); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = '#07296F'; ctx.lineWidth = 2; ctx.stroke();
-    texto('Sensor de presença', PIR.x, PIR.y + 26, '#5A6C9C', 11);
+    texto('Sensor de presença (sala toda)', PIR.x + 22, PIR.y + 14, '#5A6C9C', 11, 'left');
 
     ctx.fillStyle = '#FFFFFF';
     retang(DHT.x - 8, DHT.y - 14, 16, 28, 3); ctx.fill();
@@ -557,9 +549,9 @@
     let d;
     if (!online) d = 'Conecte o Arduino para a porta e o sensor funcionarem.';
     else if (!b) d = 'Passe um cartão no leitor para o boneco dele aparecer.';
-    else if (!naSala(b.x) && portaAberta(b.uid)) d = 'Porta aberta para ' + nome(b.uid) + '. Entre e vá até a área azul do sensor.';
+    else if (!naSala(b.x) && portaAberta(b.uid)) d = 'Porta aberta para ' + nome(b.uid) + '. Entre na sala para o sensor de presença ver.';
     else if (!naSala(b.x)) d = nome(b.uid) + ' está no corredor. Passe o cartão dele no leitor para abrir a porta.';
-    else if (naZonaPir(b.x, b.y)) d = nome(b.uid) + ' está na frente do sensor de presença: o Arduino recebe movimento.';
+    else if (naZonaPir(b.x, b.y)) d = nome(b.uid) + ' está na sala. Andando, o sensor de presença manda movimento para o Arduino; para sair, passe o cartão de novo.';
     else d = nome(b.uid) + ' está na sala. Para sair, passe o cartão dele de novo.';
     if (d !== ultimaDica) { ultimaDica = d; document.getElementById('dica').textContent = d; }
   }
