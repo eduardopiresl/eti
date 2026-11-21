@@ -18,12 +18,20 @@ const app = Vue.createApp({
 
             form: { tempoInatividade: 30, limiteTemp: 28, umidMin: 40, umidMax: 75, aguaMin: 15, aguaMax: 30 },
             editando: false,
+            simForm: { ativa: false, valor: 30 },
+            editandoSim: false,
             regrasSalvas: false,
             enviado: ''
         }
     },
 
     computed: {
+        tempSala() {
+            return ETI.data.tempSala(this.st)
+        },
+        setpoint() {
+            return this.st.setar != null && this.online ? this.st.setar : (this.config.arSetpoint || 21)
+        },
 
         luzPct() {
             return this.st.luz == null ? 0 : Math.round(this.st.luz / 1023 * 100)
@@ -81,6 +89,25 @@ const app = Vue.createApp({
             clearTimeout(this.timerEnviado)
             this.timerEnviado = setTimeout(() => { this.enviado = '' }, 2500)
         },
+        ligarAr(ligar) {
+            ETI.data.ar.ligar(ligar)
+            this.avisar('Comando para ' + (ligar ? 'ligar' : 'desligar') + ' o ar enviado.')
+        },
+        mudarSetpoint(delta) {
+            ETI.data.ar.setSetpoint(this.setpoint + delta)
+        },
+        aplicarFonte() {
+            ETI.data.ar.setSimulada(this.simForm.ativa, this.simForm.valor)
+        },
+        aplicarSimulada() {
+            this.simForm.ativa = true
+            ETI.data.ar.setSimulada(true, this.simForm.valor)
+        },
+        avisar(txt) {
+            this.enviado = txt
+            clearTimeout(this.timerEnviado)
+            this.timerEnviado = setTimeout(() => { this.enviado = '' }, 2500)
+        },
         zerar() {
             if (confirm('Zerar a contagem de pessoas no Arduino?')) this.comando('ZERAR')
         },
@@ -96,6 +123,7 @@ const app = Vue.createApp({
                 aguaMin: f.aguaMin, aguaMax: f.aguaMax
             })
             ETI.data.enviarComando('TEMPO ' + tempo)
+            ETI.data.enviarComando('LIMITE ' + f.limiteTemp)
             this.regrasSalvas = true
             clearTimeout(this.timerSalvo)
             this.timerSalvo = setTimeout(() => { this.regrasSalvas = false }, 2500)
@@ -114,6 +142,8 @@ const app = Vue.createApp({
                 if (!this.editando) {
                     Object.keys(this.form).forEach(k => { if (c[k] != null) this.form[k] = c[k] })
                 }
+                this.simForm.ativa = !!c.tempSimAtiva
+                if (!this.editandoSim) this.simForm.valor = c.tempSimValor
             }),
             ETI.data.onAlertas(a => {
                 this.alertas = a.ativos

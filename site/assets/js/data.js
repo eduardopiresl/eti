@@ -14,6 +14,9 @@ window.ETI = window.ETI || {};
     aguaMin: 15,
     aguaMax: 30,
     tempoInatividade: 30,
+    arSetpoint: 21,
+    tempSimAtiva: false,
+    tempSimValor: 30,
     nomes: {}
   };
 
@@ -101,6 +104,20 @@ window.ETI = window.ETI || {};
     onUsuario: function (fn) { return inscrever('usuario', fn); }
   };
 
+  function tempSala(st) {
+    if (!st) return null;
+    return st.sim != null ? st.sim : st.temp;
+  }
+
+  function comandosConfig(c) {
+    return [
+      'TEMPO ' + c.tempoInatividade,
+      'LIMITE ' + c.limiteTemp,
+      'SETAR ' + c.arSetpoint,
+      c.tempSimAtiva ? 'SIM ' + c.tempSimValor : 'SIM OFF'
+    ];
+  }
+
   function eventoRecente(acao, ms) {
     const ev = (valores.eventos || []).find(function (e) { return e.acao === acao; });
     return ev && agora() - ev.ts < ms ? ev : null;
@@ -141,14 +158,16 @@ window.ETI = window.ETI || {};
     const inativ = inatividadeAtiva(st);
     if (inativ) add('inatividade', 'Sala parada',
       'Tem ' + st.pessoas + (st.pessoas === 1 ? ' pessoa registrada' : ' pessoas registradas') +
-      ', mas nenhum movimento há mais de ' + st.inatividade + ' s. A lâmpada foi apagada.', inativ.ts);
+      ', mas nenhum movimento há mais de ' + st.inatividade + ' s. A lâmpada e o ar foram desligados.', inativ.ts);
 
     const lotada = eventoRecente('lotada', 60000);
     if (lotada) add('lotada', 'Sala lotada', 'Um cartão tentou entrar, mas a sala já está no limite.', lotada.ts);
 
+    const temp = tempSala(st);
     if (st.temp == null) add('dht', 'Falha no DHT22', 'O sensor de temperatura e umidade não respondeu.');
-    else if (st.temp > c.limiteTemp) add('calor', 'Sala quente',
-      'Temperatura de ' + ETI.ui.numero(st.temp, 1) + ' °C, acima do limite de ' + c.limiteTemp + ' °C.');
+    if (temp != null && temp > c.limiteTemp) add('calor', 'Sala quente',
+      'Temperatura ' + (st.sim != null ? 'simulada ' : '') + 'de ' + ETI.ui.numero(temp, 1) + ' °C, acima do limite de ' +
+      c.limiteTemp + ' °C.' + (st.ar ? ' O ar-condicionado está ligado.' : ''));
 
     if (st.umid != null && (st.umid < c.umidMin || st.umid > c.umidMax)) add('umidade',
       st.umid < c.umidMin ? 'Ar seco' : 'Ar úmido demais',
@@ -198,6 +217,24 @@ window.ETI = window.ETI || {};
     onConectadoFirebase: function (fn) { return inscrever('conectadoFirebase', fn); },
 
     presentes: presentes,
+    tempSala: tempSala,
+    comandosConfig: comandosConfig,
+
+    ar: {
+      ligar: function (sim) {
+        return ETI.data.enviarComando('AR ' + (sim ? 1 : 0));
+      },
+      setSetpoint: function (graus) {
+        graus = Math.max(16, Math.min(30, Math.round(graus)));
+        ETI.data.setConfig({ arSetpoint: graus });
+        return ETI.data.enviarComando('SETAR ' + graus);
+      },
+      setSimulada: function (ativa, valor) {
+        valor = Math.round(Math.max(0, Math.min(50, Number(valor) || 0)) * 10) / 10;
+        ETI.data.setConfig({ tempSimAtiva: !!ativa, tempSimValor: valor });
+        return ETI.data.enviarComando(ativa ? 'SIM ' + valor : 'SIM OFF');
+      }
+    },
 
     online: function () {
       const st = valores.status;
@@ -250,6 +287,11 @@ window.ETI = window.ETI || {};
           const motivos = { entrada: 'alguém entrou no escuro', movimento: 'voltou a ter movimento',
             sala_vazia: 'a sala ficou vazia', inatividade: 'ninguém se mexeu', manual: 'comando do site', zerar: 'contagem zerada' };
           return 'Lâmpada ' + (e.estado ? 'acesa' : 'apagada') + (motivos[e.motivo] ? ' (' + motivos[e.motivo] + ').' : '.');
+        }
+        case 'ar': {
+          const motivos = { calor: 'sala acima do limite com gente se mexendo', sala_vazia: 'a sala ficou vazia',
+            inatividade: 'ninguém se mexeu', manual: 'comando do site', zerar: 'contagem zerada' };
+          return 'Ar-condicionado ' + (e.estado ? 'ligado' : 'desligado') + (motivos[e.motivo] ? ' (' + motivos[e.motivo] + ').' : '.');
         }
         case 'inicio': return 'Arduino ligado ou reiniciado.';
         default: return e.acao;

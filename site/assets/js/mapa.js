@@ -10,6 +10,7 @@
   const LAMPADA = { x: 560, y: 280 };
   const FILTRO = { x: 790, y: 430, l: 70, a: 60 };
   const DHT = { x: 870, y: 120 };
+  const AR = { x: 852, y: 240, l: 24, a: 100 };
   const RFID = { x: 178, y: 222 };
   const JANELA = { x1: 500, x2: 720 };
   const MESAS = [
@@ -43,6 +44,7 @@
   let primeiraCarga = true;
   const teclas = {};
   let refBonecos = null;
+  let config = {};
 
   function agora() { return Date.now(); }
 
@@ -325,6 +327,30 @@
       ctx.fillRect(SALA.x1, SALA.y1, SALA.x2 - SALA.x1, SALA.y2 - SALA.y1);
     }
 
+    const arLigado = !!st.ar;
+    if (arLigado) {
+      const g = ctx.createRadialGradient(AR.x, AR.y + AR.a / 2, 10, AR.x, AR.y + AR.a / 2, 420);
+      g.addColorStop(0, 'rgba(120,190,255,0.30)');
+      g.addColorStop(1, 'rgba(120,190,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(SALA.x1, SALA.y1, SALA.x2 - SALA.x1, SALA.y2 - SALA.y1);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(60,150,235,0.7)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 12]);
+      ctx.lineDashOffset = t / 25;
+      for (let k = 0; k < 4; k++) {
+        const y0 = AR.y + 18 + k * 21;
+        ctx.beginPath();
+        for (let dx = 0; dx <= 150; dx += 5) {
+          const y = y0 + Math.sin((dx + k * 20) / 22) * 6 * (dx / 150);
+          if (dx === 0) ctx.moveTo(AR.x - 4 - dx, y); else ctx.lineTo(AR.x - 4 - dx, y);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     ctx.beginPath(); ctx.arc(LAMPADA.x, LAMPADA.y, 16, 0, Math.PI * 2);
     ctx.fillStyle = lampada ? '#FFD65A' : '#B8C2D6'; ctx.fill();
     ctx.strokeStyle = lampada ? '#E0A800' : '#8A96AE'; ctx.lineWidth = 2; ctx.stroke();
@@ -368,7 +394,18 @@
     ctx.fillStyle = '#FFFFFF';
     retang(DHT.x - 8, DHT.y - 14, 16, 28, 3); ctx.fill();
     ctx.strokeStyle = '#07296F'; ctx.lineWidth = 2; ctx.stroke();
-    etiqueta(num(st.temp, 1) + ' °C · ' + num(st.umid) + ' %', DHT.x - 70, DHT.y);
+    etiqueta(num(ETI.data.tempSala(st), 1) + ' °C' + (st.sim != null ? ' (simulada)' : '') + ' · ' + num(st.umid) + ' %', DHT.x - 90, DHT.y);
+
+    ctx.fillStyle = '#FFFFFF';
+    retang(AR.x, AR.y, AR.l, AR.a, 5); ctx.fill();
+    ctx.strokeStyle = '#07296F'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = arLigado ? '#3C96EB' : '#B8C2D6'; ctx.lineWidth = 1.5;
+    for (let k = 1; k < 6; k++) {
+      ctx.beginPath(); ctx.moveTo(AR.x + 5, AR.y + k * AR.a / 6); ctx.lineTo(AR.x + AR.l - 5, AR.y + k * AR.a / 6); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(AR.x + AR.l / 2, AR.y + 8, 3, 0, Math.PI * 2);
+    ctx.fillStyle = arLigado ? '#3BD47F' : '#E0533A'; ctx.fill();
+    etiqueta('Ar ' + setpointAr() + ' °C · ' + (arLigado ? 'ligado' : 'desligado'), AR.x - 66, AR.y + AR.a + 12);
 
     etiqueta('Pessoas no Arduino: ' + (st.pessoas == null ? '—' : st.pessoas), SALA.x1 + 95, SALA.y2 - 24);
 
@@ -401,6 +438,36 @@
       texto('Arduino desconectado: a porta não abre e o movimento não é enviado', L / 2, A - 30, '#FFFFFF', 12, 'center', 600);
     }
   }
+
+  function setpointAr() {
+    return st.setar != null && online ? st.setar : (config.arSetpoint || 21);
+  }
+
+  const arEstado = document.getElementById('ar-estado');
+  const arSetpoint = document.getElementById('ar-setpoint');
+  const arLigar = document.getElementById('ar-ligar');
+  const simAtiva = document.getElementById('sim-ativa');
+  const simValor = document.getElementById('sim-valor');
+
+  function atualizarPainelAr() {
+    const temp = ETI.data.tempSala(st);
+    arEstado.textContent = (st.ar ? 'Ligado' : 'Desligado') + '. Sala a ' + num(temp, 1) + ' °C' +
+      (st.sim != null ? ' (simulada)' : ' (DHT22)') + '; liga com gente se mexendo acima de ' + num(config.limiteTemp || 28, 1) + ' °C.';
+    arSetpoint.textContent = setpointAr() + ' °C';
+    arLigar.querySelector('span').textContent = st.ar ? 'Desligar' : 'Ligar';
+    arLigar.className = 'btn ' + (st.ar ? 'btn-outline-primary' : 'btn-primary');
+    arLigar.disabled = !online;
+    simAtiva.checked = !!config.tempSimAtiva;
+    if (document.activeElement !== simValor && config.tempSimValor != null) simValor.value = config.tempSimValor;
+  }
+
+  document.getElementById('ar-menos').addEventListener('click', function () { ETI.data.ar.setSetpoint(setpointAr() - 1); });
+  document.getElementById('ar-mais').addEventListener('click', function () { ETI.data.ar.setSetpoint(setpointAr() + 1); });
+  arLigar.addEventListener('click', function () { ETI.data.ar.ligar(!st.ar); });
+  simAtiva.addEventListener('change', function () { ETI.data.ar.setSimulada(simAtiva.checked, simValor.value); });
+  function aplicarSim() { ETI.data.ar.setSimulada(true, simValor.value); }
+  document.getElementById('sim-aplicar').addEventListener('click', aplicarSim);
+  simValor.addEventListener('keydown', function (e) { if (e.key === 'Enter') aplicarSim(); });
 
   function redimensionar() {
     const dpr = window.devicePixelRatio || 1;
@@ -516,9 +583,9 @@
   function iniciar() {
     if (iniciado) return;
     iniciado = true;
-    ETI.data.onStatus(function (s) { st = s || {}; });
+    ETI.data.onStatus(function (s) { st = s || {}; atualizarPainelAr(); });
     ETI.data.onAlertas(function () { online = ETI.data.online(); });
-    ETI.data.onConfig(function () { desenharLista(); });
+    ETI.data.onConfig(function (c) { config = c; desenharLista(); atualizarPainelAr(); });
     ETI.data.onEventos(function (lista) {
       receberEventos(lista);
       if (!refBonecos) {
@@ -526,7 +593,7 @@
         refBonecos.on('value', receberPosicoes);
       }
     });
-    setInterval(function () { online = ETI.data.online(); }, 1000);
+    setInterval(function () { online = ETI.data.online(); atualizarPainelAr(); }, 1000);
   }
 
   ETI.auth.onUsuario(function (u) { if (u) iniciar(); });

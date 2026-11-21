@@ -45,8 +45,9 @@
 
       <div class="row g-3 mb-3">
         <div class="col-6 col-lg-3">
-          <card-leitura rotulo="Temperatura" :valor="st.temp == null ? '—' : num(st.temp, 1)" unidade="°C"
-            :fora-do-limite="st.temp != null && st.temp > config.limiteTemp"></card-leitura>
+          <card-leitura rotulo="Temperatura" :valor="tempSala == null ? '—' : num(tempSala, 1)"
+            :unidade="st.sim != null ? '°C · simulada' : '°C'"
+            :fora-do-limite="tempSala != null && tempSala > config.limiteTemp"></card-leitura>
         </div>
         <div class="col-6 col-lg-3">
           <card-leitura rotulo="Umidade" :valor="st.umid == null ? '—' : num(st.umid)" unidade="%"
@@ -73,8 +74,8 @@
           <card-leitura rotulo="Lâmpada (LED)" :valor="st.lampada ? 'Acesa' : 'Apagada'"></card-leitura>
         </div>
         <div class="col-6 col-lg-3">
-          <card-leitura rotulo="Arduino" :valor="online ? 'Ao vivo' : 'Sem sinal'"
-            :unidade="st.ts ? ' · ' + hora(st.ts) : ''" :fora-do-limite="!online"></card-leitura>
+          <card-leitura rotulo="Ar-condicionado" :valor="st.ar ? 'Ligado' : 'Desligado'"
+            :unidade="' · ' + setpoint + ' °C'"></card-leitura>
         </div>
       </div>
 
@@ -95,6 +96,46 @@
                   <i class="bi bi-lightbulb-off" aria-hidden="true"></i> Apagar
                 </button>
               </div>
+            </div>
+
+            <div class="bloco">
+              <h3>Ar-condicionado</h3>
+              <p class="legenda mt-0">Liga sozinho quando alguém entra pelo cartão e se mexe com a sala acima de
+                {{ num(config.limiteTemp, 1) }} °C. Desliga quando para o movimento ou a sala esvazia.</p>
+              <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                <button type="button" class="btn btn-primary" @click="ligarAr(true)" :disabled="!online">
+                  <i class="bi bi-snow" aria-hidden="true"></i> Ligar
+                </button>
+                <button type="button" class="btn btn-outline-primary" @click="ligarAr(false)" :disabled="!online">
+                  <i class="bi bi-power" aria-hidden="true"></i> Desligar
+                </button>
+                <span class="ms-sm-3 d-inline-flex align-items-center gap-2">
+                  <button type="button" class="btn btn-outline-primary" @click="mudarSetpoint(-1)" aria-label="Diminuir temperatura do ar">
+                    <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                  </button>
+                  <strong style="min-width: 4.5em; text-align: center">{{ setpoint }} °C</strong>
+                  <button type="button" class="btn btn-outline-primary" @click="mudarSetpoint(1)" aria-label="Aumentar temperatura do ar">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                  </button>
+                </span>
+              </div>
+
+              <h3 class="mt-3">Temperatura usada pela sala</h3>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" id="fonte-dht" :value="false" v-model="simForm.ativa" @change="aplicarFonte">
+                <label class="form-check-label" for="fonte-dht">Medida pelo DHT22
+                  <span class="legenda">({{ st.temp == null ? 'sem leitura' : num(st.temp, 1) + ' °C' }})</span></label>
+              </div>
+              <div class="form-check d-flex flex-wrap align-items-center gap-2">
+                <input class="form-check-input" type="radio" id="fonte-sim" :value="true" v-model="simForm.ativa" @change="aplicarFonte">
+                <label class="form-check-label" for="fonte-sim">Simulada:</label>
+                <input class="form-control form-control-sm" type="number" min="0" max="50" step="0.5" style="width: 6em"
+                  v-model.number="simForm.valor" @focus="editandoSim = true" @blur="editandoSim = false"
+                  @keyup.enter="aplicarSimulada" aria-label="Temperatura simulada em graus">
+                <span>°C</span>
+                <button type="button" class="btn btn-sm btn-outline-primary" @click="aplicarSimulada">Aplicar</button>
+              </div>
+              <p class="legenda">Na simulada, o ar ligado esfria a sala até {{ setpoint }} °C; desligado, ela volta a esquentar até o valor escolhido.</p>
             </div>
 
             <div class="bloco">
@@ -137,7 +178,7 @@
                     v-model.number="form.tempoInatividade">
                 </div>
                 <div class="col-sm-6">
-                  <label class="form-label" for="limiteTemp">Alerta de calor acima de (°C)</label>
+                  <label class="form-label" for="limiteTemp">Ligar o ar e alertar calor acima de (°C)</label>
                   <input class="form-control" type="number" id="limiteTemp" min="16" max="40" step="0.5"
                     v-model.number="form.limiteTemp">
                 </div>
@@ -204,7 +245,7 @@
       <section class="secao">
         <h2>Histórico</h2>
         <grafico-linha :rotulos="graficoRotulos" :series="graficoSeries"></grafico-linha>
-        <p class="legenda">Temperatura da sala em azul-escuro, água do filtro em laranja e umidade em
+        <p class="legenda">Temperatura da sala (a simulada, quando estiver ligada) em azul-escuro, água do filtro em laranja e umidade em
           azul-claro (eixo da direita). Um ponto a cada 30 s, última hora.</p>
       </section>
 

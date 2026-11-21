@@ -54,6 +54,9 @@ const app = Vue.createApp({
         num(valor, casas) {
             return ETI.ui.numero(valor, casas)
         },
+        tempSala(st) {
+            return ETI.data.tempSala(st)
+        },
         reagendar() {
             clearInterval(this.timerRotacao)
             this.timerRotacao = setInterval(() => {

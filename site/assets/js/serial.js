@@ -40,7 +40,7 @@ window.ETI = window.ETI || {};
       if (Date.now() - ultimoHistorico >= INTERVALO_HISTORICO) {
         ultimoHistorico = Date.now();
         raiz.child('historico').push({
-          temp: msg.temp, umid: msg.umid, agua: msg.agua,
+          temp: ETI.data.tempSala(msg), ar: msg.ar || 0, umid: msg.umid, agua: msg.agua,
           luz: msg.luz, pessoas: msg.pessoas, ts: TS
         });
       }
@@ -52,7 +52,7 @@ window.ETI = window.ETI || {};
 
       if (msg.acao === 'inicio') {
         const off = ETI.data.onConfig(function (c) {
-          if (c.tempoInatividade) escrever('TEMPO ' + c.tempoInatividade);
+          ETI.data.comandosConfig(c).forEach(escrever);
         });
         off();
       }

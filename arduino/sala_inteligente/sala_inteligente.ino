@@ -8,6 +8,7 @@
 #define PINO_PIR    3
 #define PINO_LED    4
 #define PINO_AGUA   5
+#define PINO_AR     6
 #define PINO_RST    9
 #define PINO_SS    10
 #define PINO_LDR   A0
@@ -19,6 +20,9 @@
 #define ANTIREPIQUE_CARTAO 3000UL
 #define DURACAO_MOV        3000UL
 #define CARENCIA_SAIDA    10000UL
+#define PASSO_SIMULACAO    1000UL
+#define RESFRIAR_POR_SEG     0.2
+#define AQUECER_POR_SEG      0.1
 
 MFRC522 rfid(PINO_SS, PINO_RST);
 DHT dht(PINO_DHT, DHT22);
@@ -37,6 +41,15 @@ unsigned long ultimaSaida = 0;
 bool pirAnterior = false;
 bool avisouInatividade = false;
 bool lampada = false;
+
+bool ar = false;
+float limiteAr = 28.0;
+byte setpointAr = 21;
+bool usarSimulada = false;
+float tempSimulada = 30.0;
+float tempSimAlvo = 30.0;
+float ultimaTemp = NAN;
+unsigned long ultimaSimulacao = 0;
 
 unsigned long ultimoStatus = 0;
 unsigned long ultimoCartao = 0;
@@ -66,6 +79,7 @@ void enviarEvento(const __FlashStringHelper* acao, unsigned long uid) {
 
 void enviarStatus() {
   float temperatura = dht.readTemperature();
+  ultimaTemp = temperatura;
   float umidade     = dht.readHumidity();
 
   float agua = sensorAgua.getTempCByIndex(0);
@@ -96,25 +110,64 @@ void enviarStatus() {
   Serial.print(cartaoPendente != 0 ? 1 : 0);
   Serial.print(F(",\"inatividade\":"));
   Serial.print(tempoInatividade / 1000);
+  Serial.print(F(",\"ar\":"));
+  Serial.print(ar ? 1 : 0);
+  Serial.print(F(",\"setar\":"));
+  Serial.print(setpointAr);
+  Serial.print(F(",\"limite\":"));
+  Serial.print(limiteAr, 1);
+  Serial.print(F(",\"sim\":"));
+  imprimirNumero(usarSimulada ? tempSimulada : NAN);
   Serial.println(F("}"));
+}
+
+float temperaturaSala() {
+  return usarSimulada ? tempSimulada : ultimaTemp;
 }
 
 bool estaEscuro() {
   return analogRead(PINO_LDR) <= LIMIAR_CLARO;
 }
 
-void mudarLampada(bool ligar, const __FlashStringHelper* motivo) {
-  if (ligar == lampada) return;
-  lampada = ligar;
-  digitalWrite(PINO_LED, ligar ? HIGH : LOW);
-
-  Serial.print(F("{\"tipo\":\"evento\",\"acao\":\"lampada\",\"estado\":"));
+void enviarMudanca(const __FlashStringHelper* acao, bool ligar, const __FlashStringHelper* motivo) {
+  Serial.print(F("{\"tipo\":\"evento\",\"acao\":\""));
+  Serial.print(acao);
+  Serial.print(F("\",\"estado\":"));
   Serial.print(ligar ? 1 : 0);
   Serial.print(F(",\"motivo\":\""));
   Serial.print(motivo);
   Serial.print(F("\",\"pessoas\":"));
   Serial.print(totalPessoas);
   Serial.println(F("}"));
+}
+
+void mudarLampada(bool ligar, const __FlashStringHelper* motivo) {
+  if (ligar == lampada) return;
+  lampada = ligar;
+  digitalWrite(PINO_LED, ligar ? HIGH : LOW);
+  enviarMudanca(F("lampada"), ligar, motivo);
+}
+
+void mudarAr(bool ligar, const __FlashStringHelper* motivo) {
+  if (ligar == ar) return;
+  ar = ligar;
+  digitalWrite(PINO_AR, ligar ? HIGH : LOW);
+  enviarMudanca(F("ar"), ligar, motivo);
+}
+
+void verificarAr() {
+  float t = temperaturaSala();
+  if (!ar && totalPessoas > 0 && !isnan(t) && t > limiteAr) mudarAr(true, F("calor"));
+}
+
+void simularTemperatura() {
+  if (!usarSimulada || millis() - ultimaSimulacao < PASSO_SIMULACAO) return;
+  ultimaSimulacao = millis();
+  if (ar && tempSimulada > setpointAr) {
+    tempSimulada = max((float)setpointAr, tempSimulada - RESFRIAR_POR_SEG);
+  } else if (!ar && tempSimulada < tempSimAlvo) {
+    tempSimulada = min(tempSimAlvo, tempSimulada + AQUECER_POR_SEG);
+  }
 }
 
 unsigned long lerUID() {
@@ -143,6 +196,7 @@ void registrarCartao(unsigned long uid) {
       ultimaSaida = millis();
       avisouInatividade = false;
       mudarLampada(false, F("sala_vazia"));
+      mudarAr(false, F("sala_vazia"));
     }
   } else if (totalPessoas >= MAX_PESSOAS) {
     enviarEvento(F("lotada"), uid);
@@ -170,10 +224,12 @@ void aoDetectarMovimento(bool virtualMov) {
     enviarEvento(F("entrada"), cartaoPendente);
     cartaoPendente = 0;
     if (estaEscuro()) mudarLampada(true, F("entrada"));
+    verificarAr();
   } else if (totalPessoas == 0) {
     enviarEvento(F("intruso"), 0);
-  } else if (!lampada && estaEscuro()) {
-    mudarLampada(true, F("movimento"));
+  } else {
+    if (!lampada && estaEscuro()) mudarLampada(true, F("movimento"));
+    verificarAr();
   }
 }
 
@@ -189,6 +245,7 @@ void verificarTempos() {
     avisouInatividade = true;
     enviarEvento(F("inatividade"), 0);
     mudarLampada(false, F("inatividade"));
+    mudarAr(false, F("inatividade"));
   }
 }
 
@@ -206,11 +263,35 @@ void executarComando(char* cmd) {
       avisouInatividade = false;
     }
     enviarStatus();
+  } else if (strcmp(cmd, "AR 1") == 0) {
+    mudarAr(true, F("manual"));
+  } else if (strcmp(cmd, "AR 0") == 0) {
+    mudarAr(false, F("manual"));
+  } else if (strncmp(cmd, "SETAR ", 6) == 0) {
+    int graus = atoi(cmd + 6);
+    if (graus >= 16 && graus <= 30) setpointAr = graus;
+    enviarStatus();
+  } else if (strncmp(cmd, "LIMITE ", 7) == 0) {
+    float graus = atof(cmd + 7);
+    if (graus >= 10 && graus <= 45) limiteAr = graus;
+    enviarStatus();
+  } else if (strcmp(cmd, "SIM OFF") == 0) {
+    usarSimulada = false;
+    enviarStatus();
+  } else if (strncmp(cmd, "SIM ", 4) == 0) {
+    float graus = atof(cmd + 4);
+    if (graus >= 0 && graus <= 50) {
+      usarSimulada = true;
+      tempSimulada = graus;
+      tempSimAlvo = graus;
+    }
+    enviarStatus();
   } else if (strcmp(cmd, "ZERAR") == 0) {
     totalPessoas = 0;
     cartaoPendente = 0;
     avisouInatividade = false;
     mudarLampada(false, F("zerar"));
+    mudarAr(false, F("zerar"));
     enviarEvento(F("zerado"), 0);
   } else if (strcmp(cmd, "STATUS") == 0) {
     enviarStatus();
@@ -246,6 +327,8 @@ void setup() {
   pinMode(PINO_PIR, INPUT);
   pinMode(PINO_LED, OUTPUT);
   digitalWrite(PINO_LED, LOW);
+  pinMode(PINO_AR, OUTPUT);
+  digitalWrite(PINO_AR, LOW);
 
   Serial.println(F("{\"tipo\":\"inicio\"}"));
 }
@@ -270,6 +353,7 @@ void loop() {
   pirAnterior = pir;
 
   verificarTempos();
+  simularTemperatura();
 
   if (millis() - ultimoStatus >= INTERVALO_STATUS) {
     ultimoStatus = millis();
