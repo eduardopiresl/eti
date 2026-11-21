@@ -30,6 +30,9 @@ Arduino ──USB──> computador da sala (Chrome, "Conectar Arduino") ──>
 | DS18B20 (água) | vermelho 5V · amarelo D5 · preto GND · ~5k (2×10k em paralelo) entre 5V e amarelo |
 | LDR | 5V → LDR → A0 → 10k → GND |
 | RC522 (RFID) | SDA D10 · SCK D13 · MOSI D11 · MISO D12 · RST D9 · 3,3V · GND |
+| Ventoinha (ar) | D6 → 3×680 Ω em paralelo → base do E13009 (esq.) · coletor (meio) no fio preto · emissor (dir.) no GND · fio amarelo no +5V · verde solto |
+
+Placa: Arduino Nano, processador **ATmega328P** (sem Old Bootloader).
 
 Bibliotecas: DHT sensor library + Adafruit Unified Sensor, MFRC522, OneWire, DallasTemperature.
 
@@ -40,6 +43,10 @@ Bibliotecas: DHT sensor library + Adafruit Unified Sensor, MFRC522, OneWire, Dal
 3. Movimento com a sala vazia e sem cartão → alerta de **intruso**.
 4. Gente na sala e nenhum movimento pelo tempo configurado → **inatividade** e a lâmpada apaga.
 5. Lâmpada acende quando alguém entra no escuro e apaga quando a última pessoa sai.
+6. **Ar-condicionado** liga quando alguém que entrou pelo cartão se mexe com a sala acima do limite (28 °C por padrão) e desliga na inatividade, com a sala vazia ou no zerar. A temperatura do ar começa em 21 °C (16 a 30).
+7. A temperatura da sala pode vir do DHT22 ou ser **simulada**: com o ar ligado ela cai 0,2 °C/s até a temperatura do ar; desligado, volta a subir até o valor escolhido.
+
+Comandos pela serial: MOV, LUZ 1/0, AR 1/0, SETAR n, LIMITE n, SIM n, SIM OFF, TEMPO n, ZERAR, STATUS.
 
 ## Testar o site no computador
 
