@@ -19,6 +19,20 @@
       <img src="assets/img/logo-eti.svg" alt="">
       <span>{{ sala.nome }}, {{ sala.bloco }}</span>
     </span>
+    <span class="tv-controles">
+      <button v-if="suportaSerial" type="button" class="btn btn-sm"
+        :class="serial.conectado ? 'btn-outline-light' : 'btn-light'" @click="alternarSerial">
+        <i class="bi" :class="serial.conectado ? 'bi-usb-plug' : 'bi-usb-symbol'" aria-hidden="true"></i>
+        {{ serial.conectado ? 'Desconectar Arduino' : 'Conectar Arduino' }}
+      </button>
+      <button type="button" class="btn btn-sm" :disabled="!online"
+        :class="st.fixa ? 'btn-light' : 'btn-outline-light'"
+        @click="enviar(st.fixa ? 'FIXA 0' : 'FIXA 1')">
+        <i class="bi bi-lightbulb" aria-hidden="true"></i>
+        {{ st.fixa ? 'Soltar a luz' : 'Luz sempre acesa' }}
+      </button>
+      <span class="tv-erro" v-if="serial.erro">{{ serial.erro }}</span>
+    </span>
     <span class="tv-hora">{{ hora }}</span>
   </header>
 
@@ -54,6 +68,7 @@
 <script src="assets/js/firebase-config.js"></script>
 <script src="assets/js/app.js"></script>
 <script src="assets/js/data.js"></script>
+<script src="assets/js/serial.js"></script>
 
 <script src="assets/js/painel.js"></script>
 

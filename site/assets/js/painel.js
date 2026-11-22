@@ -12,7 +12,9 @@ const app = Vue.createApp({
             alertas: [],
             avisos: [],
             indice: 0,
-            hora: ETI.ui.hora(Date.now())
+            hora: ETI.ui.hora(Date.now()),
+            suportaSerial: ETI.gateway.suportado,
+            serial: { conectado: false, erro: null }
         }
     },
 
@@ -53,6 +55,13 @@ const app = Vue.createApp({
     },
 
     methods: {
+        alternarSerial() {
+            if (this.serial.conectado) ETI.gateway.desconectar()
+            else ETI.gateway.conectar()
+        },
+        enviar(cmd) {
+            ETI.data.enviarComando(cmd)
+        },
         num(valor, casas) {
             return ETI.ui.numero(valor, casas)
         },
@@ -97,6 +106,9 @@ const app = Vue.createApp({
             }),
             ETI.data.onAvisos(lista => {
                 this.avisos = lista.filter(a => a.ativo)
+            }),
+            ETI.gateway.onEstado(s => {
+                this.serial = { conectado: s.conectado, erro: s.erro }
             })
         ]
 
