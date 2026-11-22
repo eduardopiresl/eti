@@ -22,6 +22,8 @@
 #define PASSO_SIMULACAO    1000UL
 #define RESFRIAR_POR_SEG     0.2
 #define AQUECER_POR_SEG      0.1
+// Sem ouvir o site por esse tempo, a placa volta para o automático sozinha.
+#define SITE_SUMIU        60000UL
 
 MFRC522 rfid(PINO_SS, PINO_RST);
 DHT dht(PINO_DHT, DHT22);
@@ -44,6 +46,7 @@ bool lampada = false;
 bool ar = false;
 // Automático: a lâmpada e o ar ligam sozinhos. O site desliga (AUTO 0) no controle manual e no modo economia.
 bool automatico = true;
+unsigned long ultimoComandoSite = 0;
 int limiarClaro = 700;   // LDR acima disso = claro (o site muda com LUZMIN n)
 float limiteAr = 28.0;
 byte setpointAr = 21;
@@ -242,6 +245,12 @@ void aoDetectarMovimento(bool virtualMov) {
 
 void verificarTempos() {
 
+  // O site mandou AUTO 0 (economia ou manual) e depois sumiu: a sala volta a se cuidar sozinha.
+  if (!automatico && millis() - ultimoComandoSite > SITE_SUMIU) {
+    automatico = true;
+    enviarStatus();
+  }
+
   if (cartaoPendente != 0 && millis() - inicioPendente > JANELA_ENTRADA) {
     enviarEvento(F("entrada_cancelada"), cartaoPendente);
     cartaoPendente = 0;
@@ -257,6 +266,7 @@ void verificarTempos() {
 }
 
 void executarComando(char* cmd) {
+  ultimoComandoSite = millis();
   if (strcmp(cmd, "MOV") == 0) {
     aoDetectarMovimento(true);
   } else if (strcmp(cmd, "LUZ 1") == 0) {

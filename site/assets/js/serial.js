@@ -100,6 +100,7 @@ window.ETI = window.ETI || {};
   }
 
   let stAtual = null, cfgAtual = null, estadoAtual = {};
+  let ultimoAuto0 = 0;
   ETI.data.onStatus(function (s) { stAtual = s; });
   ETI.data.onConfig(function (c) { cfgAtual = c; });
   ETI.data.onEstado(function (e) { estadoAtual = e || {}; });
@@ -112,6 +113,12 @@ window.ETI = window.ETI || {};
     // Automático no Arduino só quando não há economia nem controle manual.
     const querAuto = !eco.ativo && !cfgAtual.modoManual;
     if (stAtual.auto != null && !!stAtual.auto !== querAuto) enviarUmaVez('AUTO ' + (querAuto ? 1 : 0));
+    // Enquanto quiser o automático desligado, repete a cada 20 s: se o site fechar,
+    // a placa para de ouvir e volta sozinha para o automático depois de 1 minuto.
+    if (!querAuto && Date.now() - ultimoAuto0 > 20000) {
+      ultimoAuto0 = Date.now();
+      escrever('AUTO 0');
+    }
 
     if (eco.ativo) {
       // Economia: corta tudo.
