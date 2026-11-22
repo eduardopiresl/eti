@@ -17,7 +17,7 @@ Arduino ──USB──> computador da sala (Chrome, "Conectar Arduino") ──>
 | Pasta | O que tem |
 |---|---|
 | `arduino/sala_inteligente/` | Código do Arduino (abrir no Arduino IDE) |
-| `site/` | Site estático (dashboard, avisos, registro, painel de TV) |
+| `site/` | Site estático (dashboard, mapa, energia, avisos, relatório, painel de TV) |
 | `servidor-local.js` | Servidor para testar o site no computador |
 
 ## Montagem
@@ -38,7 +38,7 @@ Bibliotecas: DHT sensor library + Adafruit Unified Sensor, MFRC522, OneWire, Dal
 
 ## Regras da sala (no Arduino)
 
-1. Cartão novo → porta liberada por 15 s; com movimento no PIR → **entrada** (+1).
+1. Cartão novo → porta liberada por 15 s (até 40 pessoas); com movimento no PIR → **entrada** (+1).
 2. Cartão de quem já está dentro → **saída** (−1).
 3. Movimento com a sala vazia e sem cartão → alerta de **intruso**.
 4. Gente na sala e nenhum movimento pelo tempo configurado → **inatividade** e a lâmpada apaga.
@@ -46,7 +46,16 @@ Bibliotecas: DHT sensor library + Adafruit Unified Sensor, MFRC522, OneWire, Dal
 6. **Ar-condicionado** liga quando alguém que entrou pelo cartão se mexe com a sala acima do limite (28 °C por padrão) e desliga na inatividade, com a sala vazia ou no zerar. A temperatura do ar começa em 21 °C (16 a 30).
 7. A temperatura da sala pode vir do DHT22 ou ser **simulada**: com o ar ligado ela cai 0,2 °C/s até a temperatura do ar; desligado, volta a subir até o valor escolhido.
 
-Comandos pela serial: MOV, LUZ 1/0, AR 1/0, SETAR n, LIMITE n, SIM n, SIM OFF, TEMPO n, ZERAR, STATUS.
+Comandos pela serial: MOV, LUZ 1/0, AR 1/0, SETAR n, LIMITE n, SIM n, SIM OFF, TEMPO n, LUZMIN n, AUTO 1/0, ZERAR, STATUS.
+
+## Regras do site (rodam no computador da ponte)
+
+- **Ocupação**: ocupada quando alguém entrou pelo cartão ou no horário de aulas (grade). Pode ser marcada à mão como ocupada ou vazia por 3 horas.
+- **Modo economia**: com a sala vazia, depois do desligamento programado (23:00) ou ativado à mão, desliga luz, ar, ventilação e projetor e trava os controles (manda AUTO 0 ao Arduino).
+- **Controle manual**: mexer num equipamento suspende as automações (AUTO 0) até "Retomar automações".
+- **Ventilação** (só no site): liga acima do limite de temperatura e desliga 1,5 °C abaixo.
+- **Energia**: consumo e custo por equipamento, economia com as automações e retorno de energia solar.
+- **Perfis**: `perfis/<uid>` no Firebase com "professor" esconde Avisos e Relatório; sem nada, o usuário é gestor.
 
 ## Testar o site no computador
 

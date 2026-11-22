@@ -40,6 +40,47 @@
     });
   });
 
+  // Histórico dos alertas disparados pelo sistema
+  let registro = [];
+  let ativos = {};
+  let ultimoRegistro = '';
+
+  function desenharRegistro() {
+    const html = registro.length
+      ? '<div class="table-responsive"><table class="table"><thead><tr>' +
+        '<th>Quando</th><th>Alerta</th><th>Mensagem</th><th class="n">Situação</th>' +
+        '</tr></thead><tbody>' +
+        registro.map(function (r, i) {
+          // é o disparo mais recente desse tipo e o alerta ainda está ativo
+          const maisRecente = registro.findIndex(function (x) { return x.tipo === r.tipo; }) === i;
+          const noAr = maisRecente && ativos[r.tipo];
+          return '<tr><td style="white-space:nowrap">' + ETI.ui.dataHora(r.ts) + '</td>' +
+            '<td><strong>' + ETI.ui.escapar(r.titulo) + '</strong></td>' +
+            '<td>' + ETI.ui.escapar(r.texto) + '</td>' +
+            '<td class="n" style="white-space:nowrap">' + (noAr ? 'Ativo' : 'Encerrado') + '</td></tr>';
+        }).join('') +
+        '</tbody></table></div>'
+      : '<p class="vazio" style="padding:0">Nenhum alerta disparado até agora.</p>';
+
+    if (html === ultimoRegistro) return;
+    ultimoRegistro = html;
+    document.getElementById('registro-alertas').innerHTML = html;
+    document.getElementById('acoes-registro').hidden = !registro.length;
+  }
+
+  ETI.data.onRegistroAlertas(function (r) { registro = r; desenharRegistro(); });
+  ETI.data.onAlertas(function (a) {
+    ativos = {};
+    a.ativos.forEach(function (x) { ativos[x.id] = true; });
+    desenharRegistro();
+  });
+
+  document.getElementById('btn-limpar-registro').addEventListener('click', function () {
+    if (confirm('Apagar o histórico de alertas? Os alertas ativos continuam valendo.')) {
+      ETI.data.limparRegistroAlertas();
+    }
+  });
+
   document.getElementById('form-aviso').addEventListener('submit', function (e) {
     e.preventDefault();
     ETI.data.addAviso({

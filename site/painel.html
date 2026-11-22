@@ -17,7 +17,7 @@
   <header class="tv-topo">
     <span class="d-flex align-items-center gap-3">
       <img src="assets/img/logo-eti.svg" alt="">
-      <span>{{ sala.nome }}</span>
+      <span>{{ sala.nome }}, {{ sala.bloco }}</span>
     </span>
     <span class="tv-hora">{{ hora }}</span>
   </header>
@@ -34,12 +34,15 @@
       :fora-do-limite="tempSala(st) != null && tempSala(st) > config.limiteTemp"></card-leitura>
     <card-leitura escuro rotulo="Umidade" :valor="st.umid == null ? '—' : num(st.umid)" unidade="%"></card-leitura>
     <card-leitura escuro rotulo="Projetor" :valor="st.equip == null ? '—' : num(st.equip, 1)" unidade="°C"></card-leitura>
-    <card-leitura escuro rotulo="Pessoas" :valor="st.pessoas == null ? '—' : st.pessoas"></card-leitura>
+    <card-leitura escuro rotulo="Luminosidade" :valor="st.luz == null ? '—' : (st.claro ? 'Clara' : 'Escura')"></card-leitura>
+    <card-leitura escuro rotulo="Lotação" :valor="st.pessoas == null ? '—' : st.pessoas" :unidade="'/ ' + config.capacidade"
+      :fora-do-limite="(st.pessoas || 0) > config.capacidade"></card-leitura>
     <card-leitura escuro rotulo="Lâmpada" :valor="st.lampada ? 'Acesa' : 'Apagada'"></card-leitura>
     <card-leitura escuro rotulo="Ar-condicionado" :valor="st.ar ? 'Ligado' : 'Desligado'"
       :unidade="st.setar != null ? ' · ' + st.setar + ' °C' : ''"></card-leitura>
     <span class="tv-estado">
-      <status-sala curto :online="online" :pessoas="st.pessoas || 0" :lampada="!!st.lampada"></status-sala>
+      <status-sala curto :online="online" :pessoas="st.pessoas || 0" :lampada="!!st.lampada"
+        :ocupada="ocupacao.ocupada" :modo-economia="economia.ativo"></status-sala>
     </span>
   </footer>
 

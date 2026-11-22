@@ -5,10 +5,37 @@ window.ETI = window.ETI || {};
   const db = firebase.database();
   const raiz = db.ref('sala');
 
-  const SALA = { nome: 'Sala Inteligente', bloco: 'Protótipo com Arduino Nano' };
+  const DURACAO_OVERRIDE = 3 * 3600000; // "marcar ocupada/vazia" vale por 3 horas
 
   const CONFIG_PADRAO = {
+    salaNome: 'Sala 12',
+    salaBloco: 'Bloco B',
+    capacidade: 40,
     limiteTemp: 28,
+    limiteLuz: 700,           // LDR (0 a 1023): abaixo disso está escuro e a luz pode ligar
+    horarioEconomia: '23:00', // desligamento programado
+    tarifa: 0.92,
+    diasLetivos: 22,
+    grade: [
+      { dia: 1, inicio: '19:00', fim: '22:30' },
+      { dia: 2, inicio: '19:00', fim: '22:30' },
+      { dia: 3, inicio: '19:00', fim: '22:30' },
+      { dia: 4, inicio: '19:00', fim: '22:30' },
+      { dia: 5, inicio: '19:00', fim: '22:30' }
+    ],
+    // Escolhas do usuário
+    modoManual: false,        // equipamentos mexidos à mão: automações suspensas
+    economiaForcada: false,   // botão "Ativar modo economia"
+    ocupacaoManual: null,     // null = segue a grade e o cartão; true/false = marcada à mão
+    ocupacaoManualAte: null,  // quando a marcação manual expira
+    equipamentos: [
+      { id: 'iluminacao', nome: 'Iluminação', detalhe: '8 lâmpadas LED (LED na maquete)', potencia: 18, qtd: 8, horas: 5 },
+      { id: 'ventilacao', nome: 'Ventilação', detalhe: '2 ventiladores de teto', potencia: 120, qtd: 2, horas: 4 },
+      { id: 'projetor', nome: 'Projetor', detalhe: 'Projetor multimídia', potencia: 280, qtd: 1, horas: 3 },
+      { id: 'ar', nome: 'Ar-condicionado', detalhe: 'Split 12.000 BTU (ventoinha na maquete)', potencia: 1100, qtd: 1, horas: 4 },
+      { id: 'computadores', nome: 'Computadores', detalhe: 'Estações de aluno', potencia: 150, qtd: 10, horas: 4 }
+    ],
+    solar: { custoInstalacao: 28000, geracaoMensal: 420, vidaUtil: 25 },
     umidMin: 40,
     umidMax: 75,
     equipMax: 40,
@@ -60,6 +87,9 @@ window.ETI = window.ETI || {};
       return;
     }
     emitir('usuario', usuario);
+    db.ref('perfis/' + usuario.uid).once('value')
+      .then(function (s) { emitir('perfil', s.val() === 'professor' ? 'professor' : 'gestor'); })
+      .catch(function () { emitir('perfil', 'gestor'); });
     if (!iniciado && !window.ETI_PAGINA_LOGIN) { iniciado = true; assinar(); }
   });
 
@@ -76,13 +106,23 @@ window.ETI = window.ETI || {};
     });
 
     raiz.child('config').on('value', function (s) {
-      const c = Object.assign({}, CONFIG_PADRAO, s.val() || {});
+      const c = Object.assign(JSON.parse(JSON.stringify(CONFIG_PADRAO)), s.val() || {});
       c.nomes = c.nomes || {};
+      c.solar = Object.assign({}, CONFIG_PADRAO.solar, c.solar || {});
+      c.grade = Array.isArray(c.grade) ? c.grade.filter(Boolean) : CONFIG_PADRAO.grade;
+      c.equipamentos = Array.isArray(c.equipamentos) ? c.equipamentos.filter(Boolean) : [];
+      if (c.ocupacaoManual === undefined) c.ocupacaoManual = null;
       emitir('config', c);
       recalcular();
     });
 
     raiz.child('gateway').on('value', function (s) { emitir('gateway', s.val()); });
+
+    raiz.child('estado').on('value', function (s) { emitir('estado', s.val() || {}); recalcular(); });
+
+    raiz.child('alertasRegistro').orderByChild('ts').limitToLast(30).on('value', function (s) {
+      emitir('registroAlertas', lista(s).reverse());
+    });
 
     db.ref('avisos').orderByChild('criadoEm').on('value', function (s) {
       emitir('avisos', lista(s).reverse());
@@ -100,7 +140,8 @@ window.ETI = window.ETI || {};
     sair: function () {
       return firebase.auth().signOut().then(function () { location.replace('index.html'); });
     },
-    onUsuario: function (fn) { return inscrever('usuario', fn); }
+    onUsuario: function (fn) { return inscrever('usuario', fn); },
+    onPerfil: function (fn) { return inscrever('perfil', fn); }
   };
 
   function tempSala(st) {
@@ -110,11 +151,75 @@ window.ETI = window.ETI || {};
 
   function comandosConfig(c) {
     return [
+      'LUZMIN ' + c.limiteLuz,
       'TEMPO ' + c.tempoInatividade,
       'LIMITE ' + c.limiteTemp,
       'SETAR ' + c.arSetpoint,
       c.tempSimAtiva ? 'SIM ' + c.tempSimValor : 'SIM OFF'
     ];
+  }
+
+  /* ---------- Ocupação, modo economia e potência ---------- */
+
+  function cfg() { return valores.config || CONFIG_PADRAO; }
+
+  function minutos(hhmm) {
+    const p = String(hhmm || '00:00').split(':');
+    return (+p[0] || 0) * 60 + (+p[1] || 0);
+  }
+
+  function minutoAgora() {
+    const d = new Date(agora());
+    return d.getHours() * 60 + d.getMinutes();
+  }
+
+  function overrideAtivo() {
+    const c = cfg();
+    if (c.ocupacaoManual === null || c.ocupacaoManual === undefined) return false;
+    return !c.ocupacaoManualAte || agora() < c.ocupacaoManualAte;
+  }
+
+  function ocupadaPelaGrade() {
+    const dia = new Date(agora()).getDay();
+    const min = minutoAgora();
+    return (cfg().grade || []).some(function (f) {
+      return f.dia === dia && min >= minutos(f.inicio) && min < minutos(f.fim);
+    });
+  }
+
+  // Com o Arduino: tem gente que entrou pelo cartão = ocupada. Sem ninguém, vale o horário de aulas.
+  function temGenteNoCartao() {
+    const st = valores.status;
+    return !!(st && ETI.data.online() && st.pessoas > 0);
+  }
+
+  function ocupada() {
+    if (overrideAtivo()) return !!cfg().ocupacaoManual;
+    return temGenteNoCartao() || ocupadaPelaGrade();
+  }
+
+  function motivoEconomia() {
+    const c = cfg();
+    if (c.economiaForcada) return 'forcada';
+    // Alguém marcou a sala como ocupada: vale mais que o horário programado.
+    if (overrideAtivo() && c.ocupacaoManual === true) return null;
+    if (!ocupada()) return 'vazia';
+    if (minutoAgora() >= minutos(c.horarioEconomia)) return 'horario';
+    return null;
+  }
+
+  // Lâmpada e ar são de verdade (vêm do Arduino); os outros ficam guardados no Firebase.
+  function ligado(id) {
+    const st = valores.status || {};
+    if (id === 'iluminacao') return !!st.lampada;
+    if (id === 'ar') return !!st.ar;
+    return !!(valores.estado || {})[id];
+  }
+
+  function potenciaAtual() {
+    return (cfg().equipamentos || []).reduce(function (s, eq) {
+      return ligado(eq.id) ? s + eq.potencia * eq.qtd : s;
+    }, 0);
   }
 
   function eventoRecente(acao, ms) {
@@ -133,12 +238,20 @@ window.ETI = window.ETI || {};
     return ev && ev.acao === 'inatividade' ? ev : null;
   }
 
+  // Cada regra com histerese tem uma condição para disparar e outra (mais folgada) para continuar
+  // ativa. Isso evita o alerta piscar quando o valor fica oscilando em cima do limite.
+  let alertasAntes = {};
+
   function calcularAlertas() {
     const st = valores.status;
-    const c = valores.config || CONFIG_PADRAO;
+    const c = cfg();
     const ativos = [];
     function add(id, titulo, texto, desde) {
-      ativos.push({ id: id, titulo: titulo, texto: texto, desde: desde || (st && st.ts) || agora() });
+      ativos.push({ id: id, titulo: titulo, texto: texto,
+        desde: desde || (alertasAntes[id] && alertasAntes[id].desde) || agora() });
+    }
+    function regra(id, disparar, manter, titulo, texto) {
+      if (alertasAntes[id] ? manter : disparar) add(id, titulo, texto);
     }
 
     if (!st || !st.ts || agora() - st.ts > SEM_LEITURA_MS) {
@@ -163,14 +276,33 @@ window.ETI = window.ETI || {};
     if (lotada) add('lotada', 'Sala lotada', 'Um cartão tentou entrar, mas a sala já está no limite.', lotada.ts);
 
     const temp = tempSala(st);
+    const temGente = ocupada();
+    const cap = c.capacidade || 0;
+    const pessoas = st.pessoas || 0;
     if (st.temp == null) add('dht', 'Falha no DHT22', 'O sensor de temperatura e umidade não respondeu.');
-    if (temp != null && temp > c.limiteTemp) add('calor', 'Sala quente',
-      'Temperatura ' + (st.sim != null ? 'simulada ' : '') + 'de ' + ETI.ui.numero(temp, 1) + ' °C, acima do limite de ' +
-      c.limiteTemp + ' °C.' + (st.ar ? ' O ar-condicionado está ligado.' : ''));
-
-    if (st.umid != null && (st.umid < c.umidMin || st.umid > c.umidMax)) add('umidade',
-      st.umid < c.umidMin ? 'Ar seco' : 'Ar úmido demais',
-      'Umidade de ' + ETI.ui.numero(st.umid) + ' %, fora da faixa de ' + c.umidMin + ' a ' + c.umidMax + ' %.');
+    if (temp != null) {
+      regra('calor', temGente && temp > c.limiteTemp, temGente && temp > c.limiteTemp - 0.5, 'Sala muito quente',
+        'Temperatura ' + (st.sim != null ? 'simulada ' : '') + 'de ' + ETI.ui.numero(temp, 1) + ' °C, acima do limite de ' +
+        ETI.ui.numero(c.limiteTemp, 1) + ' °C. ' +
+        (st.ar ? 'O ar-condicionado já está ligado.' : (ligado('ventilacao') ? 'A ventilação já está ligada; se não baixar, ligue a climatização.' : 'Ligue a climatização.')));
+      regra('frio', temGente && temp < 18, temGente && temp < 19, 'Sala fria',
+        ETI.ui.numero(temp, 1) + ' °C. Desligue a ventilação e feche as janelas.');
+    }
+    if (st.umid != null) {
+      regra('umidade-alta', temGente && st.umid > c.umidMax, temGente && st.umid > c.umidMax - 5, 'Umidade alta',
+        'Umidade em ' + ETI.ui.numero(st.umid) + '%. Ventile a sala.');
+      regra('umidade-baixa', temGente && st.umid < c.umidMin, temGente && st.umid < c.umidMin + 5, 'Ar seco',
+        'Umidade em ' + ETI.ui.numero(st.umid) + '%. Recomenda-se umidificar o ambiente e beber água.');
+    }
+    if (st.luz != null) {
+      regra('pouca-luz', temGente && st.luz < c.limiteLuz && !st.lampada, temGente && st.luz < c.limiteLuz + 50 && !st.lampada,
+        'Pouca luz', 'Luminosidade em ' + st.luz + ' (de 0 a 1023), abaixo do mínimo de ' + c.limiteLuz + '. Ligue a iluminação.');
+    }
+    regra('lotacao', cap > 0 && pessoas > cap, cap > 0 && pessoas > cap, 'Sala acima da capacidade',
+      pessoas + ' pessoas para ' + cap + ' lugares. Remaneje alunos para outra sala.');
+    regra('quase-lotada', cap > 0 && pessoas >= Math.ceil(cap * 0.9) && pessoas <= cap,
+      cap > 0 && pessoas >= Math.ceil(cap * 0.85) && pessoas <= cap, 'Sala quase lotada',
+      pessoas + ' de ' + cap + ' lugares ocupados.');
 
     if (st.equip == null) add('ds18b20', 'Sem leitura do projetor', 'O sensor DS18B20 do projetor não respondeu.');
     else if (st.equip > c.equipMax) add('equip', 'Projetor superaquecendo',
@@ -180,8 +312,23 @@ window.ETI = window.ETI || {};
   }
 
   let ultimoAlertas = null;
+  let primeiroCalculo = true;
   function recalcular() {
     const ativos = calcularAlertas();
+    const novos = {};
+    ativos.forEach(function (a) { novos[a.id] = a; });
+
+    // Só o computador que está com o Arduino grava o histórico de alertas (para não repetir).
+    const ponte = ETI.gateway && ETI.gateway.estado && ETI.gateway.estado().conectado;
+    if (ponte && !primeiroCalculo) {
+      ativos.forEach(function (a) {
+        if (alertasAntes[a.id] || a.id === 'offline') return;
+        raiz.child('alertasRegistro').push({ tipo: a.id, titulo: a.titulo, texto: a.texto, ts: firebase.database.ServerValue.TIMESTAMP });
+      });
+    }
+    if (valores.status !== undefined && valores.config !== undefined) primeiroCalculo = false;
+    alertasAntes = novos;
+
     const chave = JSON.stringify(ativos);
     if (chave === ultimoAlertas) return;
     ultimoAlertas = chave;
@@ -203,7 +350,51 @@ window.ETI = window.ETI || {};
     db: db,
     raiz: raiz,
     agora: agora,
-    sala: function () { return SALA; },
+    sala: function () {
+      const c = cfg();
+      return { nome: c.salaNome, bloco: c.salaBloco, capacidade: c.capacidade };
+    },
+    ocupada: ocupada,
+    // { ocupada, manual, ate, pelaGrade, pelaPresenca } — de onde vem a ocupação atual
+    ocupacao: function () {
+      const manual = overrideAtivo();
+      return { ocupada: ocupada(), manual: manual, ate: manual ? cfg().ocupacaoManualAte : null,
+        pelaGrade: ocupadaPelaGrade(), pelaPresenca: temGenteNoCartao() };
+    },
+    // { ativo, motivo } — motivo: 'forcada' | 'horario' | 'vazia' | null
+    economia: function () {
+      const m = motivoEconomia();
+      return { ativo: m !== null, motivo: m };
+    },
+    ligado: ligado,
+    potencia: potenciaAtual,
+    controlaveis: ['iluminacao', 'ar', 'ventilacao', 'projetor'],
+    onEstado: function (fn) { return inscrever('estado', fn); },
+    onRegistroAlertas: function (fn) { return inscrever('registroAlertas', fn); },
+
+    // Ligar ou desligar à mão suspende as automações até "Retomar automações".
+    setEstado: function (id, ligar) {
+      ETI.data.setConfig({ modoManual: true });
+      if (id === 'iluminacao') return ETI.data.enviarComando('LUZ ' + (ligar ? 1 : 0));
+      if (id === 'ar') return ETI.data.enviarComando('AR ' + (ligar ? 1 : 0));
+      return raiz.child('estado/' + id).set(!!ligar);
+    },
+    // true = ocupada, false = vazia, null = volta a seguir a grade e o cartão
+    setOcupacao: function (valor) {
+      if (valor === null) return ETI.data.setConfig({ ocupacaoManual: null, ocupacaoManualAte: null });
+      return ETI.data.setConfig({ ocupacaoManual: !!valor, ocupacaoManualAte: agora() + DURACAO_OVERRIDE });
+    },
+    forcarEconomia: function () { return ETI.data.setConfig({ economiaForcada: true }); },
+    desativarEconomia: function () { return ETI.data.setConfig({ economiaForcada: false }); },
+    // Desfaz tudo que foi feito à mão: economia forçada, equipamentos e ocupação.
+    retomarAutomatico: function () {
+      return ETI.data.setConfig({ modoManual: false, economiaForcada: false, ocupacaoManual: null, ocupacaoManualAte: null });
+    },
+    equipamentos: function () { return JSON.parse(JSON.stringify(cfg().equipamentos || [])); },
+    setEquipamentos: function (lista) { return ETI.data.setConfig({ equipamentos: lista }); },
+    solar: function () { return Object.assign({}, cfg().solar); },
+    setSolar: function (s) { return ETI.data.setConfig({ solar: s }); },
+    limparRegistroAlertas: function () { return raiz.child('alertasRegistro').remove(); },
 
     onStatus: function (fn) { return inscrever('status', fn); },
     onEventos: function (fn) { return inscrever('eventos', fn); },
@@ -268,6 +459,8 @@ window.ETI = window.ETI || {};
         historico: null,
         comandos: null,
         mapa: null,
+        estado: null,
+        alertasRegistro: null,
         'config/nomes': null
       }).then(function () { return ETI.data.enviarComando('ZERAR'); });
     },

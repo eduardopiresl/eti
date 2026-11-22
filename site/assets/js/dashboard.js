@@ -6,7 +6,11 @@ const app = Vue.createApp({
         return {
             sala: ETI.data.sala(),
             st: {},
-            config: { nomes: {} },
+            config: { nomes: {}, equipamentos: [], grade: [] },
+            estado: {},
+            ocupacao: { ocupada: false, manual: false, ate: null },
+            economia: { ativo: false, motivo: null },
+            dias: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
             alertas: [],
             eventos: [],
             historico: [],
@@ -16,7 +20,8 @@ const app = Vue.createApp({
             suportaSerial: ETI.gateway.suportado,
             serial: { conectado: false, erro: null, linhas: [] },
 
-            form: { tempoInatividade: 30, limiteTemp: 28, umidMin: 40, umidMax: 75, equipMax: 40 },
+            form: { tempoInatividade: 30, limiteTemp: 28, umidMin: 40, umidMax: 75, equipMax: 40,
+                limiteLuz: 700, horarioEconomia: '23:00', capacidade: 40 },
             editando: false,
             simForm: { ativa: false, valor: 30 },
             editandoSim: false,
@@ -31,6 +36,42 @@ const app = Vue.createApp({
         },
         setpoint() {
             return this.st.setar != null && this.online ? this.st.setar : (this.config.arSetpoint || 21)
+        },
+
+        // Equipamentos que têm chave no painel (os outros só entram na conta de energia)
+        equipamentosControle() {
+            return (this.config.equipamentos || []).filter(eq => ETI.data.controlaveis.includes(eq.id))
+        },
+        potencia() {
+            this.st; this.estado; this.config
+            return ETI.data.potencia()
+        },
+        lotacaoPct() {
+            const cap = this.config.capacidade || 0
+            return cap ? Math.min(100, Math.round((this.st.pessoas || 0) / cap * 100)) : 0
+        },
+        lotacaoCheia() {
+            return (this.st.pessoas || 0) >= (this.config.capacidade || Infinity)
+        },
+        modoOcupacao() {
+            if (!this.ocupacao.manual) return 'grade'
+            return this.ocupacao.ocupada ? 'ocupada' : 'vazia'
+        },
+        notaOcupacao() {
+            if (this.ocupacao.manual) return 'Marcada à mão até as ' + ETI.ui.hora(this.ocupacao.ate) + '. Depois volta a seguir a grade e o cartão.'
+            return 'Automática: ocupada quando alguém entrou pelo cartão ou no horário de aulas.'
+        },
+        notaEconomia() {
+            const m = this.economia.motivo
+            if (m === 'forcada') return 'Ativado à mão: iluminação, ar, ventilação e projetor desligados e travados.'
+            if (m === 'horario') return 'Em vigor pelo desligamento programado das ' + this.config.horarioEconomia + '. Ativar aqui mantém a economia mesmo depois.'
+            if (m === 'vazia') return 'Em vigor porque a sala está vazia. Ativar aqui mantém a economia mesmo quando a sala voltar a ser usada.'
+            return 'Desliga iluminação, ar, ventilação e projetor e trava os controles até ser desativado.'
+        },
+        notaManual() {
+            if (this.economia.ativo) return 'Controles travados enquanto o modo economia estiver ativo.'
+            if (this.config.modoManual) return 'Você assumiu os equipamentos. A luz, o ar e a ventilação não mudam sozinhos até retomar as automações.'
+            return 'Luz, ar e ventilação seguem as regras automaticamente. Mexer em um equipamento suspende as regras.'
         },
 
         luzPct() {
@@ -67,6 +108,10 @@ const app = Vue.createApp({
                     rotulo: 'Umidade', cor: '#8DB6FF', eixo: 'y2', unidade: '%', casas: 0,
                     escala: { suggestedMin: 0, suggestedMax: 100 },
                     dados: this.historico.map(p => p.umid)
+                },
+                {
+                    rotulo: 'Luminosidade', cor: '#C99A06', eixo: 'y2', unidade: '%', casas: 0,
+                    dados: this.historico.map(p => p.luz == null ? null : Math.round(p.luz / 1023 * 100))
                 }
             ]
         }
@@ -89,8 +134,32 @@ const app = Vue.createApp({
             clearTimeout(this.timerEnviado)
             this.timerEnviado = setTimeout(() => { this.enviado = '' }, 2500)
         },
+        // Recebe o evento 'alternar' do componente chave-equipamento
+        alternar(id) {
+            if (this.economia.ativo) return
+            ETI.data.setEstado(id, !ETI.data.ligado(id))
+        },
+        ligado(id) {
+            this.st; this.estado
+            return ETI.data.ligado(id)
+        },
+        setOcupacao(valor) {
+            ETI.data.setOcupacao(valor)
+        },
+        alternarEconomia() {
+            if (this.config.economiaForcada) ETI.data.desativarEconomia()
+            else ETI.data.forcarEconomia()
+        },
+        retomar() {
+            ETI.data.setConfig({ modoManual: false })
+        },
+        atualizarRegras() {
+            this.ocupacao = ETI.data.ocupacao()
+            this.economia = ETI.data.economia()
+            this.online = ETI.data.online()
+        },
         ligarAr(ligar) {
-            ETI.data.ar.ligar(ligar)
+            ETI.data.setEstado('ar', ligar)
             this.avisar('Comando para ' + (ligar ? 'ligar' : 'desligar') + ' o ar enviado.')
         },
         mudarSetpoint(delta) {
@@ -129,8 +198,12 @@ const app = Vue.createApp({
             ETI.data.setConfig({
                 tempoInatividade: tempo,
                 limiteTemp: f.limiteTemp, umidMin: f.umidMin, umidMax: f.umidMax,
-                equipMax: f.equipMax
+                equipMax: f.equipMax,
+                limiteLuz: Math.max(0, Math.min(1023, Math.round(f.limiteLuz))),
+                horarioEconomia: f.horarioEconomia,
+                capacidade: Math.max(1, Math.round(f.capacidade))
             })
+            ETI.data.enviarComando('LUZMIN ' + Math.max(0, Math.min(1023, Math.round(f.limiteLuz))))
             ETI.data.enviarComando('TEMPO ' + tempo)
             ETI.data.enviarComando('LIMITE ' + f.limiteTemp)
             this.regrasSalvas = true
@@ -145,9 +218,12 @@ const app = Vue.createApp({
 
     mounted() {
         this.cancelamentos = [
-            ETI.data.onStatus(s => { this.st = s || {} }),
+            ETI.data.onStatus(s => { this.st = s || {}; this.atualizarRegras() }),
+            ETI.data.onEstado(e => { this.estado = e }),
             ETI.data.onConfig(c => {
                 this.config = c
+                this.sala = ETI.data.sala()
+                this.atualizarRegras()
                 if (!this.editando) {
                     Object.keys(this.form).forEach(k => { if (c[k] != null) this.form[k] = c[k] })
                 }
@@ -166,7 +242,7 @@ const app = Vue.createApp({
             })
         ]
 
-        this.timerOnline = setInterval(() => { this.online = ETI.data.online() }, 1000)
+        this.timerOnline = setInterval(() => this.atualizarRegras(), 1000)
     },
 
     unmounted() {

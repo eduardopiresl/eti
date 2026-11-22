@@ -10,6 +10,7 @@ window.ETI = window.ETI || {};
   let escritor = null;
   let cancelarComandos = null;
   let ultimoHistorico = 0;
+  let timerAutomacoes = null;
 
   const estado = { conectado: false, erro: null, linhas: [] };
   const ouvintes = [];
@@ -40,7 +41,7 @@ window.ETI = window.ETI || {};
       if (Date.now() - ultimoHistorico >= INTERVALO_HISTORICO) {
         ultimoHistorico = Date.now();
         raiz.child('historico').push({
-          temp: ETI.data.tempSala(msg), ar: msg.ar || 0, umid: msg.umid, equip: msg.equip,
+          temp: ETI.data.tempSala(msg), ar: msg.ar || 0, umid: msg.umid, equip: msg.equip, potencia: ETI.data.potencia(),
           luz: msg.luz, pessoas: msg.pessoas, ts: TS
         });
       }
@@ -86,6 +87,51 @@ window.ETI = window.ETI || {};
     registrarLinha(cmd, 'out');
   }
 
+  /* ---------- Automações da sala (rodam só no computador da ponte) ----------
+     O Arduino cuida de entrada, saída, luz e ar. Aqui entram as regras que dependem de
+     relógio e de escolhas do site: modo economia (forçado, horário programado, sala vazia),
+     controle manual e a ventilação (que não existe na maquete, só no site). */
+  const ultimoEnvio = {};
+  function enviarUmaVez(cmd) {
+    // não repete o mesmo comando em menos de 5 s (o Arduino leva um tempo para responder)
+    if (ultimoEnvio[cmd] && Date.now() - ultimoEnvio[cmd] < 5000) return;
+    ultimoEnvio[cmd] = Date.now();
+    escrever(cmd);
+  }
+
+  let stAtual = null, cfgAtual = null, estadoAtual = {};
+  ETI.data.onStatus(function (s) { stAtual = s; });
+  ETI.data.onConfig(function (c) { cfgAtual = c; });
+  ETI.data.onEstado(function (e) { estadoAtual = e || {}; });
+
+  function automacoes() {
+    if (!estado.conectado || !stAtual || !cfgAtual) return;
+    const eco = ETI.data.economia();
+    const raiz = ETI.data.raiz;
+
+    // Automático no Arduino só quando não há economia nem controle manual.
+    const querAuto = !eco.ativo && !cfgAtual.modoManual;
+    if (stAtual.auto != null && !!stAtual.auto !== querAuto) enviarUmaVez('AUTO ' + (querAuto ? 1 : 0));
+
+    if (eco.ativo) {
+      // Economia: corta tudo.
+      if (stAtual.lampada) enviarUmaVez('LUZ 0');
+      if (stAtual.ar) enviarUmaVez('AR 0');
+      ['ventilacao', 'projetor'].forEach(function (id) {
+        if (estadoAtual[id]) raiz.child('estado/' + id).set(false);
+      });
+      return;
+    }
+
+    if (cfgAtual.modoManual) return;
+
+    // Ventilação pelo limite de temperatura, com folga de 1,5 °C para não ficar liga-desliga.
+    const t = ETI.data.tempSala(stAtual);
+    if (t == null) return;
+    if (t > cfgAtual.limiteTemp && !estadoAtual.ventilacao) raiz.child('estado/ventilacao').set(true);
+    else if (t < cfgAtual.limiteTemp - 1.5 && estadoAtual.ventilacao) raiz.child('estado/ventilacao').set(false);
+  }
+
   function ouvirComandos() {
     const ref = ETI.data.raiz.child('comandos');
     const fn = ref.on('child_added', function (snap) {
@@ -121,6 +167,7 @@ window.ETI = window.ETI || {};
     gw.onDisconnect().remove();
 
     cancelarComandos = ouvirComandos();
+    timerAutomacoes = setInterval(automacoes, 2000);
     avisar();
     lerSempre();
   }
@@ -128,6 +175,7 @@ window.ETI = window.ETI || {};
   async function desconectar() {
     estado.conectado = false;
     if (cancelarComandos) { cancelarComandos(); cancelarComandos = null; }
+    clearInterval(timerAutomacoes);
     ETI.data.raiz.child('gateway').remove();
     try { if (leitor) await leitor.cancel(); } catch (e) {}
     try { if (escritor) escritor.releaseLock(); } catch (e) {}

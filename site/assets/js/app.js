@@ -8,15 +8,21 @@ window.ETI = window.ETI || {};
   const PAGINAS = [
     { href: 'dashboard.html', nome: 'Sala', icone: 'bi-door-open' },
     { href: 'mapa.html', nome: 'Mapa', icone: 'bi-map' },
-    { href: 'avisos.html', nome: 'Avisos', icone: 'bi-megaphone' },
-    { href: 'relatorio.html', nome: 'Registro', icone: 'bi-journal-text' },
+    { href: 'energia.html', nome: 'Energia', icone: 'bi-lightning-charge' },
+    { href: 'avisos.html', nome: 'Avisos', icone: 'bi-megaphone', soGestor: true },
+    { href: 'relatorio.html', nome: 'Relatório', icone: 'bi-file-earmark-text', soGestor: true },
     { href: 'painel.html', nome: 'Painel', icone: 'bi-tv' }
   ];
 
   ETI.ui = {
     dias: DIAS_CURTO,
 
-    exigirSessao: function () {
+    // O login de verdade é feito pelo data.js (Firebase Auth). Aqui só barra o perfil
+    // "professor" das páginas de gestor. O perfil fica em perfis/<uid> no Firebase.
+    exigirSessao: function (soGestor) {
+      if (soGestor && ETI.auth) {
+        ETI.auth.onPerfil(function (p) { if (p === 'professor') location.replace('dashboard.html'); });
+      }
       return true;
     },
 
@@ -26,7 +32,7 @@ window.ETI = window.ETI || {};
 
       let html = '';
       PAGINAS.forEach(function (p) {
-        html += '<a href="' + p.href + '"' +
+        html += '<a href="' + p.href + '"' + (p.soGestor ? ' data-so-gestor' : '') +
           (p.href === atual ? ' aria-current="page"' : '') + '>' +
           '<i class="bi ' + p.icone + '" aria-hidden="true"></i>' + p.nome + '</a>';
       });
@@ -36,6 +42,11 @@ window.ETI = window.ETI || {};
       alvo.querySelector('[data-sair]').addEventListener('click', function () {
         ETI.auth.sair();
       });
+      if (ETI.auth) {
+        ETI.auth.onPerfil(function (perfil) {
+          alvo.querySelectorAll('[data-so-gestor]').forEach(function (a) { a.hidden = perfil === 'professor'; });
+        });
+      }
     },
 
     relogio: function (seletorHora, seletorData) {

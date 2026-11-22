@@ -13,8 +13,7 @@
 #define PINO_SS    10
 #define PINO_LDR   A0
 
-#define LIMIAR_CLARO        700
-#define MAX_PESSOAS          10
+#define MAX_PESSOAS          40
 #define INTERVALO_STATUS   2000UL
 #define JANELA_ENTRADA    15000UL
 #define ANTIREPIQUE_CARTAO 3000UL
@@ -43,6 +42,9 @@ bool avisouInatividade = false;
 bool lampada = false;
 
 bool ar = false;
+// Automático: a lâmpada e o ar ligam sozinhos. O site desliga (AUTO 0) no controle manual e no modo economia.
+bool automatico = true;
+int limiarClaro = 700;   // LDR acima disso = claro (o site muda com LUZMIN n)
 float limiteAr = 28.0;
 byte setpointAr = 21;
 bool usarSimulada = false;
@@ -100,7 +102,11 @@ void enviarStatus() {
   Serial.print(F(",\"luz\":"));
   Serial.print(luz);
   Serial.print(F(",\"claro\":"));
-  Serial.print(luz > LIMIAR_CLARO ? 1 : 0);
+  Serial.print(luz > limiarClaro ? 1 : 0);
+  Serial.print(F(",\"luzmin\":"));
+  Serial.print(limiarClaro);
+  Serial.print(F(",\"auto\":"));
+  Serial.print(automatico ? 1 : 0);
   Serial.print(F(",\"lampada\":"));
   Serial.print(lampada ? 1 : 0);
   Serial.print(F(",\"mov\":"));
@@ -127,7 +133,7 @@ float temperaturaSala() {
 }
 
 bool estaEscuro() {
-  return analogRead(PINO_LDR) <= LIMIAR_CLARO;
+  return analogRead(PINO_LDR) <= limiarClaro;
 }
 
 void enviarMudanca(const __FlashStringHelper* acao, bool ligar, const __FlashStringHelper* motivo) {
@@ -158,7 +164,7 @@ void mudarAr(bool ligar, const __FlashStringHelper* motivo) {
 
 void verificarAr() {
   float t = temperaturaSala();
-  if (!ar && totalPessoas > 0 && !isnan(t) && t > limiteAr) mudarAr(true, F("calor"));
+  if (automatico && !ar && totalPessoas > 0 && !isnan(t) && t > limiteAr) mudarAr(true, F("calor"));
 }
 
 void simularTemperatura() {
@@ -224,12 +230,12 @@ void aoDetectarMovimento(bool virtualMov) {
     totalPessoas++;
     enviarEvento(F("entrada"), cartaoPendente);
     cartaoPendente = 0;
-    if (estaEscuro()) mudarLampada(true, F("entrada"));
+    if (automatico && estaEscuro()) mudarLampada(true, F("entrada"));
     verificarAr();
   } else if (totalPessoas == 0) {
     enviarEvento(F("intruso"), 0);
   } else {
-    if (!lampada && estaEscuro()) mudarLampada(true, F("movimento"));
+    if (automatico && !lampada && estaEscuro()) mudarLampada(true, F("movimento"));
     verificarAr();
   }
 }
@@ -286,6 +292,16 @@ void executarComando(char* cmd) {
       tempSimulada = graus;
       tempSimAlvo = graus;
     }
+    enviarStatus();
+  } else if (strcmp(cmd, "AUTO 1") == 0) {
+    automatico = true;
+    enviarStatus();
+  } else if (strcmp(cmd, "AUTO 0") == 0) {
+    automatico = false;
+    enviarStatus();
+  } else if (strncmp(cmd, "LUZMIN ", 7) == 0) {
+    int v = atoi(cmd + 7);
+    if (v >= 0 && v <= 1023) limiarClaro = v;
     enviarStatus();
   } else if (strcmp(cmd, "ZERAR") == 0) {
     totalPessoas = 0;

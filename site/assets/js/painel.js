@@ -5,8 +5,10 @@ const app = Vue.createApp({
         return {
             sala: ETI.data.sala(),
             st: {},
-            config: { limiteTemp: 28 },
+            config: { limiteTemp: 28, capacidade: 40 },
             online: false,
+            ocupacao: { ocupada: false },
+            economia: { ativo: false, motivo: null },
             alertas: [],
             avisos: [],
             indice: 0,
@@ -57,6 +59,11 @@ const app = Vue.createApp({
         tempSala(st) {
             return ETI.data.tempSala(st)
         },
+        atualizarRegras() {
+            this.online = ETI.data.online()
+            this.ocupacao = ETI.data.ocupacao()
+            this.economia = ETI.data.economia()
+        },
         reagendar() {
             clearInterval(this.timerRotacao)
             this.timerRotacao = setInterval(() => {
@@ -82,8 +89,8 @@ const app = Vue.createApp({
 
     mounted() {
         this.cancelamentos = [
-            ETI.data.onStatus(s => { this.st = s || {} }),
-            ETI.data.onConfig(c => { this.config = c }),
+            ETI.data.onStatus(s => { this.st = s || {}; this.atualizarRegras() }),
+            ETI.data.onConfig(c => { this.config = c; this.sala = ETI.data.sala(); this.atualizarRegras() }),
             ETI.data.onAlertas(a => {
                 this.alertas = a.ativos
                 this.online = ETI.data.online()
@@ -95,7 +102,7 @@ const app = Vue.createApp({
 
         this.timerRelogio = setInterval(() => {
             this.hora = ETI.ui.hora(Date.now())
-            this.online = ETI.data.online()
+            this.atualizarRegras()
         }, 1000)
 
         this.reagendar()

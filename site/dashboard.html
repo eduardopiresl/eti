@@ -27,7 +27,10 @@
         <h1>{{ sala.nome }}</h1>
         <p>
           {{ sala.bloco }}.
-          <status-sala :online="online" :pessoas="st.pessoas || 0" :lampada="!!st.lampada"></status-sala>
+          <status-sala :online="online" :pessoas="st.pessoas || 0" :lampada="!!st.lampada"
+            :ocupada="ocupacao.ocupada" :modo-economia="economia.ativo" :modo-manual="!!config.modoManual"
+            :horario-economia="config.horarioEconomia" :motivo-economia="economia.motivo"
+            :marcada-manual="ocupacao.manual" :marcada-ate="ocupacao.ate"></status-sala>
         </p>
       </header>
 
@@ -44,38 +47,46 @@
       </section>
 
       <div class="row g-3 mb-3">
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg-4">
           <card-leitura rotulo="Temperatura" :valor="tempSala == null ? '—' : num(tempSala, 1)"
             :unidade="st.sim != null ? '°C · simulada' : '°C'"
             :fora-do-limite="tempSala != null && tempSala > config.limiteTemp"></card-leitura>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg-4">
           <card-leitura rotulo="Umidade" :valor="st.umid == null ? '—' : num(st.umid)" unidade="%"
             :fora-do-limite="st.umid != null && (st.umid < config.umidMin || st.umid > config.umidMax)"></card-leitura>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg-4">
           <card-leitura rotulo="Projetor" :valor="st.equip == null ? '—' : num(st.equip, 1)" unidade="°C"
             :fora-do-limite="st.equip != null && st.equip > config.equipMax"></card-leitura>
         </div>
-        <div class="col-6 col-lg-3">
-          <card-leitura rotulo="Luz ambiente" :valor="st.luz == null ? '—' : (st.claro ? 'Clara' : 'Escura')"
+        <div class="col-6 col-lg-4">
+          <card-leitura rotulo="Luminosidade" :valor="st.luz == null ? '—' : (st.claro ? 'Clara' : 'Escura')"
             :unidade="st.luz == null ? '' : ' ' + luzPct + '%'">
             <div class="barra" aria-hidden="true"><span :style="{ width: luzPct + '%' }"></span></div>
           </card-leitura>
         </div>
-        <div class="col-6 col-lg-3">
-          <card-leitura rotulo="Pessoas na sala" :valor="st.pessoas == null ? '—' : st.pessoas"
-            :unidade="st.porta ? ' · porta liberada' : ''"></card-leitura>
+        <div class="col-6 col-lg-4">
+          <card-leitura rotulo="Lotação" :valor="st.pessoas == null ? '—' : st.pessoas"
+            :unidade="'/ ' + config.capacidade + (st.porta ? ' · porta liberada' : '')"
+            :fora-do-limite="(st.pessoas || 0) > config.capacidade">
+            <div class="barra" aria-hidden="true">
+              <span :class="{ cheia: lotacaoCheia }" :style="{ width: lotacaoPct + '%' }"></span>
+            </div>
+          </card-leitura>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg-4">
           <card-leitura rotulo="Movimento" :valor="st.mov ? 'Detectado' : 'Parado'"></card-leitura>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg-4">
           <card-leitura rotulo="Lâmpada (LED)" :valor="st.lampada ? 'Acesa' : 'Apagada'"></card-leitura>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg-4">
           <card-leitura rotulo="Ar-condicionado" :valor="st.ar ? 'Ligado' : 'Desligado'"
             :unidade="' · ' + setpoint + ' °C'"></card-leitura>
+        </div>
+        <div class="col-6 col-lg-4">
+          <card-leitura rotulo="Potência estimada" :valor="num(potencia)" unidade="W"></card-leitura>
         </div>
       </div>
 
@@ -86,16 +97,36 @@
             <h2>Controle da sala</h2>
 
             <div class="bloco">
-              <h3>Lâmpada</h3>
-              <p class="legenda mt-0">Os comandos vão para o Arduino pelo computador que está com ele na USB.</p>
-              <div class="d-flex flex-wrap gap-2 mt-2">
-                <button type="button" class="btn btn-primary" @click="comando('LUZ 1')" :disabled="!online">
-                  <i class="bi bi-lightbulb-fill" aria-hidden="true"></i> Acender
-                </button>
-                <button type="button" class="btn btn-outline-primary" @click="comando('LUZ 0')" :disabled="!online">
-                  <i class="bi bi-lightbulb-off" aria-hidden="true"></i> Apagar
-                </button>
+              <h3>Ocupação</h3>
+              <div class="seletor" role="group" aria-label="Ocupação da sala">
+                <button type="button" :aria-pressed="String(modoOcupacao === 'grade')" @click="setOcupacao(null)">Pela grade</button>
+                <button type="button" :aria-pressed="String(modoOcupacao === 'ocupada')" @click="setOcupacao(true)">Ocupada</button>
+                <button type="button" :aria-pressed="String(modoOcupacao === 'vazia')" @click="setOcupacao(false)">Vazia</button>
               </div>
+              <p class="legenda mb-0">{{ notaOcupacao }}</p>
+            </div>
+            <div class="bloco">
+              <h3>Modo economia</h3>
+              <p class="legenda mt-0">{{ notaEconomia }}</p>
+              <button type="button" class="btn mt-2"
+                :class="config.economiaForcada ? 'btn-primary' : 'btn-outline-primary'"
+                @click="alternarEconomia">
+                <i class="bi bi-power" aria-hidden="true"></i>
+                {{ config.economiaForcada ? 'Desativar modo economia' : 'Ativar modo economia' }}
+              </button>
+            </div>
+            <div class="bloco">
+              <h3>Equipamentos</h3>
+              <chave-equipamento v-for="eq in equipamentosControle" :key="eq.id"
+                :nome="eq.nome" :detalhe="eq.detalhe" :potencia="eq.potencia * eq.qtd"
+                :ligado="ligado(eq.id)" :travado="economia.ativo"
+                @alternar="alternar(eq.id)"></chave-equipamento>
+              <p class="legenda">{{ notaManual }} A iluminação e o ar são de verdade (LED e ventoinha);
+                ventilação e projetor existem só no site.</p>
+              <button v-if="config.modoManual && !economia.ativo" type="button"
+                class="btn btn-outline-primary mt-2" @click="retomar">
+                <i class="bi bi-arrow-repeat" aria-hidden="true"></i> Retomar automações
+              </button>
             </div>
 
             <div class="bloco">
@@ -168,7 +199,7 @@
 
         <div class="col-lg-6">
           <section class="secao">
-            <h2>Regras</h2>
+            <h2>Regras e horários</h2>
 
             <form @submit.prevent="salvarRegras" @focusin="editando = true" @focusout="editando = false">
               <div class="row g-3 mb-3">
@@ -194,6 +225,20 @@
                   <label class="form-label" for="equipMax">Projetor máx. (°C)</label>
                   <input class="form-control" type="number" id="equipMax" min="20" max="90" step="0.5" v-model.number="form.equipMax">
                 </div>
+                <div class="col-sm-6">
+                  <label class="form-label" for="limiteLuz">Luz liga abaixo de (0 a 1023)</label>
+                  <input class="form-control" type="number" id="limiteLuz" min="0" max="1023" step="10"
+                    v-model.number="form.limiteLuz">
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label" for="horarioEconomia">Desligamento programado</label>
+                  <input class="form-control" type="time" id="horarioEconomia" v-model="form.horarioEconomia">
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label" for="capacidade">Capacidade da sala (pessoas)</label>
+                  <input class="form-control" type="number" id="capacidade" min="1" max="200" step="1"
+                    v-model.number="form.capacidade">
+                </div>
               </div>
 
               <div class="d-flex align-items-center gap-3">
@@ -204,6 +249,19 @@
               </div>
             </form>
 
+            <div class="bloco">
+              <h3>Horário de aulas</h3>
+              <p class="legenda mt-0 mb-2">Fora destes horários, se ninguém entrou pelo cartão, a sala conta como vazia
+                e o sistema desliga os equipamentos.</p>
+              <table class="table">
+                <tbody>
+                  <tr v-for="f in config.grade" :key="f.dia + f.inicio">
+                    <td>{{ dias[f.dia] }}</td>
+                    <td class="n">{{ f.inicio }} às {{ f.fim }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
             <div class="bloco">
               <h3>Cartões</h3>
               <p class="legenda mt-0 mb-2">Dê um nome a cada cartão que já passou no leitor.</p>
@@ -251,8 +309,7 @@
       <section class="secao">
         <h2>Histórico</h2>
         <grafico-linha :rotulos="graficoRotulos" :series="graficoSeries"></grafico-linha>
-        <p class="legenda">Temperatura da sala (a simulada, quando estiver ligada) em azul-escuro, projetor em laranja e umidade em
-          azul-claro (eixo da direita). Um ponto a cada 30 s, última hora.</p>
+        <p class="legenda">Temperatura da sala (a simulada, quando estiver ligada) em azul-escuro, projetor em laranja; umidade em azul-claro e luminosidade em amarelo (em %, eixo da direita). Um ponto a cada 30 s, última hora.</p>
       </section>
 
     </div>
@@ -272,6 +329,7 @@
 
   <script src="assets/js/components/CardLeitura.js"></script>
   <script src="assets/js/components/StatusSala.js"></script>
+  <script src="assets/js/components/ChaveEquipamento.js"></script>
   <script src="assets/js/components/GraficoLinha.js"></script>
 
   <script>
