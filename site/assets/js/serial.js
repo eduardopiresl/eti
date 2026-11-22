@@ -110,8 +110,11 @@ window.ETI = window.ETI || {};
     const eco = ETI.data.economia();
     const raiz = ETI.data.raiz;
 
-    // Automático no Arduino só quando não há economia nem controle manual.
-    const querAuto = !eco.ativo && !cfgAtual.modoManual;
+    // Automático no Arduino desligado no controle manual e no modo economia. Exceção: economia só
+    // porque a sala está vazia (sem marcação à mão). Aí o Arduino já apaga tudo sozinho, e quem
+    // entrar pelo cartão precisa que a luz acenda na hora.
+    const vaziaNatural = eco.motivo === 'vazia' && !ETI.data.ocupacao().manual;
+    const querAuto = !cfgAtual.modoManual && (!eco.ativo || vaziaNatural);
     if (stAtual.auto != null && !!stAtual.auto !== querAuto) enviarUmaVez('AUTO ' + (querAuto ? 1 : 0));
     // Enquanto quiser o automático desligado, repete a cada 20 s: se o site fechar,
     // a placa para de ouvir e volta sozinha para o automático depois de 1 minuto.
