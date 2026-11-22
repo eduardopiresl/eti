@@ -664,10 +664,23 @@
     });
   }
 
+  const botaoFixa = document.getElementById('btn-fixa');
+  const notaFixa = document.getElementById('nota-fixa');
+  function atualizarLuzFixa() {
+    const fixa = !!st.fixa;
+    botaoFixa.disabled = !online;
+    botaoFixa.className = 'btn ' + (fixa ? 'btn-primary' : 'btn-outline-primary');
+    botaoFixa.querySelector('span').textContent = fixa ? 'Soltar a luz (voltar ao normal)' : 'Deixar a luz sempre acesa';
+    notaFixa.hidden = !fixa;
+  }
+  botaoFixa.addEventListener('click', function () {
+    ETI.data.enviarComando(st.fixa ? 'FIXA 0' : 'FIXA 1');
+  });
+
   function iniciar() {
     if (iniciado) return;
     iniciado = true;
-    ETI.data.onStatus(function (s) { st = s || {}; atualizarPainelAr(); });
+    ETI.data.onStatus(function (s) { st = s || {}; atualizarPainelAr(); atualizarLuzFixa(); });
     ETI.data.onAlertas(function () { online = ETI.data.online(); });
     ETI.data.onConfig(function (c) { config = c; desenharLista(); atualizarPainelAr(); });
     ETI.data.onEventos(function (lista) {
@@ -677,7 +690,7 @@
         refBonecos.on('value', receberPosicoes);
       }
     });
-    setInterval(function () { online = ETI.data.online(); atualizarPainelAr(); }, 1000);
+    setInterval(function () { online = ETI.data.online(); atualizarPainelAr(); atualizarLuzFixa(); }, 1000);
   }
 
   ETI.auth.onUsuario(function (u) { if (u) iniciar(); });
