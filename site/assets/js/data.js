@@ -488,7 +488,8 @@ window.ETI = window.ETI || {};
         case 'zerado': return 'Contagem de pessoas zerada.';
         case 'lampada': {
           const motivos = { entrada: 'alguém entrou no escuro', movimento: 'voltou a ter movimento',
-            sala_vazia: 'a sala ficou vazia', inatividade: 'ninguém se mexeu', manual: 'comando do site', zerar: 'contagem zerada' };
+            sala_vazia: 'a sala ficou vazia', inatividade: 'ninguém se mexeu', manual: 'comando do site', zerar: 'contagem zerada',
+            fixa: 'luz fixa ligada no site' };
           return 'Lâmpada ' + (e.estado ? 'acesa' : 'apagada') + (motivos[e.motivo] ? ' (' + motivos[e.motivo] + ').' : '.');
         }
         case 'ar': {

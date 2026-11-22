@@ -121,6 +121,14 @@
                 :nome="eq.nome" :detalhe="eq.detalhe" :potencia="eq.potencia * eq.qtd"
                 :ligado="ligado(eq.id)" :travado="economia.ativo"
                 @alternar="alternar(eq.id)"></chave-equipamento>
+              <button type="button" class="btn mt-2" :disabled="!online"
+                :class="st.fixa ? 'btn-primary' : 'btn-outline-primary'"
+                @click="comando(st.fixa ? 'FIXA 0' : 'FIXA 1')">
+                <i class="bi bi-lightbulb" aria-hidden="true"></i>
+                {{ st.fixa ? 'Soltar a luz (voltar ao normal)' : 'Deixar a luz sempre acesa' }}
+              </button>
+              <p v-if="st.fixa" class="legenda mt-1">Luz fixa: o LED não apaga por inatividade, sala vazia
+                nem modo economia, até você soltar.</p>
               <p class="legenda">{{ notaManual }} A iluminação e o ar são de verdade (LED e ventoinha);
                 ventilação e projetor existem só no site.</p>
               <button v-if="config.modoManual && !economia.ativo" type="button"

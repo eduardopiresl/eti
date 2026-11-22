@@ -42,6 +42,8 @@ unsigned long ultimaSaida = 0;
 bool pirAnterior = false;
 bool avisouInatividade = false;
 bool lampada = false;
+// Luz fixa (FIXA 1): o LED fica aceso e nada apaga, nem inatividade, nem sala vazia, nem economia.
+bool luzFixa = false;
 
 bool ar = false;
 // Automático: a lâmpada e o ar ligam sozinhos. O site desliga (AUTO 0) no controle manual e no modo economia.
@@ -112,6 +114,8 @@ void enviarStatus() {
   Serial.print(automatico ? 1 : 0);
   Serial.print(F(",\"lampada\":"));
   Serial.print(lampada ? 1 : 0);
+  Serial.print(F(",\"fixa\":"));
+  Serial.print(luzFixa ? 1 : 0);
   Serial.print(F(",\"mov\":"));
   Serial.print(movimento ? 1 : 0);
   Serial.print(F(",\"pessoas\":"));
@@ -153,6 +157,7 @@ void enviarMudanca(const __FlashStringHelper* acao, bool ligar, const __FlashStr
 
 void mudarLampada(bool ligar, const __FlashStringHelper* motivo) {
   if (ligar == lampada) return;
+  if (!ligar && luzFixa) return;   // luz fixa: ninguém apaga
   lampada = ligar;
   digitalWrite(PINO_LED, ligar ? HIGH : LOW);
   enviarMudanca(F("lampada"), ligar, motivo);
@@ -312,6 +317,15 @@ void executarComando(char* cmd) {
   } else if (strncmp(cmd, "LUZMIN ", 7) == 0) {
     int v = atoi(cmd + 7);
     if (v >= 0 && v <= 1023) limiarClaro = v;
+    enviarStatus();
+  } else if (strcmp(cmd, "FIXA 1") == 0) {
+    luzFixa = true;
+    mudarLampada(true, F("fixa"));
+    enviarStatus();
+  } else if (strcmp(cmd, "FIXA 0") == 0) {
+    luzFixa = false;
+    // Soltou: se a sala está vazia, apaga; com gente, segue as regras normais.
+    if (totalPessoas == 0) mudarLampada(false, F("sala_vazia"));
     enviarStatus();
   } else if (strcmp(cmd, "ZERAR") == 0) {
     totalPessoas = 0;
