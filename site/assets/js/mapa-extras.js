@@ -1,11 +1,10 @@
 // Ferramentas do Arduino que não existem nas telas do ETI e ficam aqui no mapa:
 // teste e manutenção, quem está na sala, nomes dos cartões, ajustes da placa,
-// registro de eventos (com CSV) e as mensagens trocadas com a placa.
+// e as mensagens trocadas com a placa. O registro de eventos e os CSV ficam no relatório.
 (function () {
   const el = function (id) { return document.getElementById(id); };
 
   let eventos = [];
-  let historico = [];
   let config = null;
   let online = false;
 
@@ -94,48 +93,6 @@
     setTimeout(function () { el('ajustes-ok').hidden = true; }, 2500);
   });
 
-  /* ---------- Registro da sala ---------- */
-
-  function desenharEventos() {
-    el('registro').innerHTML = eventos.length
-      ? '<div class="table-responsive registro-sala"><table class="table"><thead><tr>' +
-        '<th>Quando</th><th>O que aconteceu</th><th class="n">Pessoas</th>' +
-        '</tr></thead><tbody>' +
-        eventos.map(function (e) {
-          return '<tr><td style="white-space:nowrap">' + ETI.ui.dataHora(e.ts) + '</td>' +
-            '<td>' + ETI.ui.escapar(ETI.data.descreverEvento(e)) + '</td>' +
-            '<td class="n">' + (e.pessoas == null ? '' : e.pessoas) + '</td></tr>';
-        }).join('') +
-        '</tbody></table></div>'
-      : '<p class="legenda mt-0">Nenhum evento ainda. Conecte o Arduino aqui no mapa.</p>';
-  }
-
-  el('btn-csv-eventos').addEventListener('click', function () {
-    const linhas = [['data_hora', 'acao', 'cartao', 'nome', 'pessoas', 'descricao']];
-    eventos.slice().reverse().forEach(function (e) {
-      linhas.push([ETI.ui.dataHora(e.ts), e.acao, e.cartao || '',
-        e.cartao ? ETI.data.nomeCartao(e.cartao) : '', e.pessoas == null ? '' : e.pessoas,
-        ETI.data.descreverEvento(e)]);
-    });
-    ETI.ui.baixarCsv('eventos-sala.csv', linhas);
-  });
-
-  el('btn-csv-historico').addEventListener('click', function () {
-    const linhas = [['data_hora', 'temperatura_c', 'umidade_pct', 'projetor_c', 'luz_0a1023', 'luz_lux', 'pessoas', 'potencia_w']];
-    historico.forEach(function (p) {
-      linhas.push([ETI.ui.dataHora(p.ts), p.temp, p.umid, p.equip, p.luz, ETI.data.lux(p.luz), p.pessoas,
-        p.potencia == null ? '' : p.potencia]);
-    });
-    ETI.ui.baixarCsv('leituras-sala.csv', linhas);
-  });
-
-  el('btn-limpar-registro').addEventListener('click', function () {
-    if (confirm('Apagar todos os eventos e leituras guardados? Não dá para desfazer.')) {
-      ETI.data.limparEventos();
-      ETI.data.limparHistorico();
-    }
-  });
-
   /* ---------- Mensagens com a placa ---------- */
 
   if (ETI.gateway && ETI.gateway.suportado) {
@@ -158,9 +115,7 @@
       eventos = lista;
       desenharPresentes();
       desenharCartoes();
-      desenharEventos();
     });
-    ETI.data.onHistoricoArduino(function (h) { historico = h; });
     ETI.data.onConfig(function (c) {
       config = c;
       desenharCartoes();
