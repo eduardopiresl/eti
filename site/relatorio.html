@@ -13,12 +13,13 @@
 
 <div class="pagina">
 
-  <div class="topo nao-imprime">
+  <div class="topo">
     <a class="marca" href="dashboard.html"><img src="assets/img/logo-eti.svg" alt="">ETI</a>
     <nav class="menu" data-menu aria-label="Seções"></nav>
   </div>
 
-  <div class="laudo mb-3">
+  <div class="laudo">
+
     <header class="cabecalho">
       <h1>Relatório de consumo</h1>
       <p id="identificacao"></p>
@@ -74,29 +75,11 @@
 
     <p class="nota">
       Os valores de consumo são estimados pela potência nominal dos equipamentos multiplicada
-      pelo tempo de uso. As condições ambientais vêm das leituras registradas pelos sensores do Arduino
-      (um ponto a cada 30 s, última hora). O tempo de retorno fotovoltaico é uma simulação de apoio à decisão.
+      pelo tempo de uso. As condições ambientais vêm das leituras registradas pelos sensores.
+      O tempo de retorno fotovoltaico é uma simulação de apoio à decisão.
     </p>
+
   </div>
-
-  <section class="secao mb-3">
-    <h2>Registro da sala</h2>
-    <p class="legenda mt-0">Tudo o que o Arduino contou: entradas e saídas pelo cartão, movimentos, lâmpada, ar e alertas.</p>
-    <div class="d-flex flex-wrap gap-2 mb-3 nao-imprime">
-      <button type="button" class="btn btn-primary" id="btn-csv-eventos">
-        <i class="bi bi-download" aria-hidden="true"></i> Baixar eventos (CSV)
-      </button>
-      <button type="button" class="btn btn-outline-primary" id="btn-csv-historico">
-        <i class="bi bi-download" aria-hidden="true"></i> Baixar leituras (CSV)
-      </button>
-      <button type="button" class="btn btn-outline-primary" id="btn-limpar">
-        <i class="bi bi-trash" aria-hidden="true"></i> Apagar registro
-      </button>
-    </div>
-    <div id="eventos"><p class="legenda">Carregando…</p></div>
-  </section>
-
-  <p class="nota">Mostra os 80 eventos mais recentes. As leituras do CSV são um ponto a cada 30 s da última hora.</p>
 
 </div>
 

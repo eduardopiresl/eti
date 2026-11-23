@@ -17,22 +17,28 @@ window.ETI = window.ETI || {};
   ETI.ui = {
     dias: DIAS_CURTO,
 
-    // O login de verdade é feito pelo data.js (Firebase Auth). Aqui só barra o perfil
-    // "professor" das páginas de gestor. O perfil fica em perfis/<uid> no Firebase.
+    sessao: function () {
+      // Gravada pela tela de login depois que o Firebase confere e-mail, senha e perfil da conta.
+      try { return JSON.parse(localStorage.getItem('eti:sessao') || 'null'); }
+      catch (e) { return null; }
+    },
+
     exigirSessao: function (soGestor) {
-      if (soGestor && ETI.auth) {
-        ETI.auth.onPerfil(function (p) { if (p === 'professor') location.replace('dashboard.html'); });
-      }
-      return true;
+      const s = ETI.ui.sessao();
+      if (!s) { location.replace('index.html'); return null; }
+      if (soGestor && s.perfil !== 'gestor') { location.replace('dashboard.html'); return null; }
+      return s;
     },
 
     montarTopo: function (atual) {
       const alvo = document.querySelector('[data-menu]');
       if (!alvo) return;
+      const perfil = (ETI.ui.sessao() || {}).perfil || 'gestor';
 
       let html = '';
       PAGINAS.forEach(function (p) {
-        html += '<a href="' + p.href + '"' + (p.soGestor ? ' data-so-gestor' : '') +
+        if (p.soGestor && perfil !== 'gestor') return;
+        html += '<a href="' + p.href + '"' +
           (p.href === atual ? ' aria-current="page"' : '') + '>' +
           '<i class="bi ' + p.icone + '" aria-hidden="true"></i>' + p.nome + '</a>';
       });
@@ -40,13 +46,10 @@ window.ETI = window.ETI || {};
 
       alvo.innerHTML = html;
       alvo.querySelector('[data-sair]').addEventListener('click', function () {
-        ETI.auth.sair();
+        localStorage.removeItem('eti:sessao');
+        if (ETI.auth) ETI.auth.sair();
+        else location.href = 'index.html';
       });
-      if (ETI.auth) {
-        ETI.auth.onPerfil(function (perfil) {
-          alvo.querySelectorAll('[data-so-gestor]').forEach(function (a) { a.hidden = perfil === 'professor'; });
-        });
-      }
     },
 
     relogio: function (seletorHora, seletorData) {

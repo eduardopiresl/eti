@@ -16,11 +16,11 @@
             '<h3>' + ETI.ui.escapar(a.titulo) + '</h3>' +
             '<p>' + ETI.ui.escapar(a.texto) + '</p>' +
             '<div class="meta">' +
-            '<span>' + (a.ativo ? 'No ar' : 'Fora do ar') + ' · criado em ' + ETI.ui.dataHora(a.criadoEm) + '</span>' +
-            '<button type="button" class="btn btn-link" data-alternar="' + ETI.ui.escapar(a.id) + '">' +
+            '<span>' + (a.ativo ? 'No ar' : 'Fora do ar') + ' desde ' + ETI.ui.dataHora(a.criadoEm) + '</span>' +
+            '<button type="button" class="btn btn-link" data-alternar="' + a.id + '">' +
             '<i class="bi ' + (a.ativo ? 'bi-eye-slash' : 'bi-eye') + '" aria-hidden="true"></i>' +
             (a.ativo ? 'tirar do ar' : 'colocar no ar') + '</button>' +
-            '<button type="button" class="btn btn-link" data-remover="' + ETI.ui.escapar(a.id) + '">' +
+            '<button type="button" class="btn btn-link" data-remover="' + a.id + '">' +
             '<i class="bi bi-trash" aria-hidden="true"></i>apagar</button>' +
             '</div></article>';
         }).join('')
@@ -40,20 +40,18 @@
     });
   });
 
-  // Histórico dos alertas disparados pelo sistema
-  let registro = [];
-  let ativos = {};
   let ultimoRegistro = '';
 
-  function desenharRegistro() {
-    const html = registro.length
+  ETI.data.onAlertas(function (a) {
+    const ativos = {};
+    a.ativos.forEach(function (x) { ativos[x.id] = x.desde; });
+
+    const html = a.registro.length
       ? '<div class="table-responsive"><table class="table"><thead><tr>' +
         '<th>Quando</th><th>Alerta</th><th>Mensagem</th><th class="n">Situação</th>' +
         '</tr></thead><tbody>' +
-        registro.map(function (r, i) {
-          // é o disparo mais recente desse tipo e o alerta ainda está ativo
-          const maisRecente = registro.findIndex(function (x) { return x.tipo === r.tipo; }) === i;
-          const noAr = maisRecente && ativos[r.tipo];
+        a.registro.map(function (r) {
+          const noAr = ativos[r.tipo] === r.ts;
           return '<tr><td style="white-space:nowrap">' + ETI.ui.dataHora(r.ts) + '</td>' +
             '<td><strong>' + ETI.ui.escapar(r.titulo) + '</strong></td>' +
             '<td>' + ETI.ui.escapar(r.texto) + '</td>' +
@@ -65,14 +63,7 @@
     if (html === ultimoRegistro) return;
     ultimoRegistro = html;
     document.getElementById('registro-alertas').innerHTML = html;
-    document.getElementById('acoes-registro').hidden = !registro.length;
-  }
-
-  ETI.data.onRegistroAlertas(function (r) { registro = r; desenharRegistro(); });
-  ETI.data.onAlertas(function (a) {
-    ativos = {};
-    a.ativos.forEach(function (x) { ativos[x.id] = true; });
-    desenharRegistro();
+    document.getElementById('acoes-registro').hidden = !a.registro.length;
   });
 
   document.getElementById('btn-limpar-registro').addEventListener('click', function () {

@@ -661,6 +661,9 @@
       botao.className = 'btn ' + (s.conectado ? 'btn-outline-primary' : 'btn-primary');
       erro.hidden = !s.erro;
       erro.textContent = s.erro || '';
+      document.querySelectorAll('.topo a').forEach(function (a) {
+        if (s.conectado) a.target = '_blank'; else a.removeAttribute('target');
+      });
     });
   }
 

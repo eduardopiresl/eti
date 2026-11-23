@@ -1,25 +1,27 @@
+// Painel de TV — aplicação Vue 3 com Options API, carregada por CDN. Abre sem login.
+// Cria `app`; os componentes vêm de assets/js/components/ e a montagem
+// (app.mount) é feita no final do painel.html.
+// Tecla F: tela cheia. Setas: passam os avisos na mão.
+// Os alertas do sistema entram na frente dos avisos; um alerta novo aparece na hora.
+
 const ROTACAO_MS = 9000
 
 const app = Vue.createApp({
     data() {
         return {
             sala: ETI.data.sala(),
-            st: {},
-            config: { limiteTemp: 28, capacidade: 40 },
-            online: false,
-            ocupacao: { ocupada: false },
-            economia: { ativo: false, motivo: null },
+            telemetria: null,
+            config: null,
+            ocupada: ETI.data.ocupada(),
             alertas: [],
             avisos: [],
             indice: 0,
-            hora: ETI.ui.hora(Date.now()),
-            suportaSerial: ETI.gateway.suportado,
-            serial: { conectado: false, erro: null }
+            hora: ETI.ui.hora(Date.now())
         }
     },
 
     computed: {
-
+        // Alertas primeiro, depois os avisos publicados
         itens() {
             const alertas = this.alertas.map(a => ({
                 chave: 'alerta:' + a.id, alerta: true, titulo: a.titulo, texto: a.texto
@@ -36,7 +38,8 @@ const app = Vue.createApp({
     },
 
     watch: {
-
+        // Os alertas chegam a cada 3 s com o texto atualizado: mantém a posição,
+        // a não ser que tenha surgido um alerta novo, que passa para a frente.
         itens(novos, velhos) {
             const antes = velhos.map(i => i.chave)
             const depois = novos.map(i => i.chave)
@@ -55,23 +58,8 @@ const app = Vue.createApp({
     },
 
     methods: {
-        alternarSerial() {
-            if (this.serial.conectado) ETI.gateway.desconectar()
-            else ETI.gateway.conectar()
-        },
-        enviar(cmd) {
-            ETI.data.enviarComando(cmd)
-        },
         num(valor, casas) {
             return ETI.ui.numero(valor, casas)
-        },
-        tempSala(st) {
-            return ETI.data.tempSala(st)
-        },
-        atualizarRegras() {
-            this.online = ETI.data.online()
-            this.ocupacao = ETI.data.ocupacao()
-            this.economia = ETI.data.economia()
         },
         reagendar() {
             clearInterval(this.timerRotacao)
@@ -98,23 +86,24 @@ const app = Vue.createApp({
 
     mounted() {
         this.cancelamentos = [
-            ETI.data.onStatus(s => { this.st = s || {}; this.atualizarRegras() }),
-            ETI.data.onConfig(c => { this.config = c; this.sala = ETI.data.sala(); this.atualizarRegras() }),
+            ETI.data.onTelemetria(t => {
+                this.telemetria = t
+                this.ocupada = ETI.data.ocupada()
+            }),
+            ETI.data.onConfig(c => {
+                this.config = c
+                this.ocupada = ETI.data.ocupada()
+            }),
             ETI.data.onAlertas(a => {
                 this.alertas = a.ativos
-                this.online = ETI.data.online()
             }),
             ETI.data.onAvisos(lista => {
                 this.avisos = lista.filter(a => a.ativo)
-            }),
-            ETI.gateway.onEstado(s => {
-                this.serial = { conectado: s.conectado, erro: s.erro }
             })
         ]
 
         this.timerRelogio = setInterval(() => {
             this.hora = ETI.ui.hora(Date.now())
-            this.atualizarRegras()
         }, 1000)
 
         this.reagendar()

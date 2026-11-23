@@ -637,17 +637,6 @@ form + .bloco {
 
 .tv-topo img { width: clamp(44px, 4.4vw, 88px); filter: brightness(0) invert(1); }
 
-.tv-controles {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-left: auto;
-}
-
-.tv-erro { color: #FFB494; font-size: 14px; }
-
 .tv-hora {
   font-size: clamp(28px, 3.4vw, 64px);
   font-weight: 600;
@@ -741,10 +730,4 @@ form + .bloco {
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
-}
-
-.leitura .valor { white-space: normal; overflow-wrap: anywhere; }
-.leitura .valor i { white-space: normal; display: inline-block; }
-@media (max-width: 575px) {
-  .leitura .valor { font-size: 30px; }
 }

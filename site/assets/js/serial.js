@@ -101,11 +101,24 @@ window.ETI = window.ETI || {};
 
   let stAtual = null, cfgAtual = null, estadoAtual = {};
   let ultimoAuto0 = 0;
+  let ultimaConfigEnviada = null;
   ETI.data.onStatus(function (s) { stAtual = s; });
-  ETI.data.onConfig(function (c) { cfgAtual = c; });
+  ETI.data.onConfig(function (c) { cfgAtual = c; enviarConfigSeMudou(); });
+
+  // Regras salvas em qualquer página (limite de temperatura, luz, tempo, ar, simulada)
+  // chegam aqui pelo Firebase e são repassadas à placa. Só manda o que mudou.
+  function enviarConfigSeMudou() {
+    if (!estado.conectado || !cfgAtual) { ultimaConfigEnviada = null; return; }
+    const cmds = ETI.data.comandosConfig(cfgAtual);
+    if (ultimaConfigEnviada) {
+      cmds.forEach(function (cmd, i) { if (cmd !== ultimaConfigEnviada[i]) escrever(cmd); });
+    }
+    ultimaConfigEnviada = cmds;
+  }
   ETI.data.onEstado(function (e) { estadoAtual = e || {}; });
 
   function automacoes() {
+    enviarConfigSeMudou();
     if (!estado.conectado || !stAtual || !cfgAtual) return;
     const eco = ETI.data.economia();
     const raiz = ETI.data.raiz;

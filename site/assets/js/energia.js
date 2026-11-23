@@ -3,19 +3,15 @@
 
   ETI.ui.montarTopo('energia.html');
 
-  // Equipamentos, tarifa e dados do solar ficam em sala/config no Firebase.
-  let equipamentos = [];
-  const solar = { custoInstalacao: 28000, geracaoMensal: 420, vidaUtil: 25 };
+  let equipamentos = ETI.data.equipamentos();
+  const solar = ETI.data.solar();
   let config = null;
 
   const el = function (id) { return document.getElementById(id); };
 
-  function preencherSolar() {
-    Object.assign(solar, ETI.data.solar());
-    el('custo-instalacao').value = solar.custoInstalacao;
-    el('geracao').value = solar.geracaoMensal;
-    el('vida-util').value = solar.vidaUtil;
-  }
+  el('custo-instalacao').value = solar.custoInstalacao;
+  el('geracao').value = solar.geracaoMensal;
+  el('vida-util').value = solar.vidaUtil;
 
   function dias() { return parseInt(el('dias').value, 10) || 22; }
   function tarifa() { return parseFloat(el('tarifa').value) || 0.92; }
@@ -107,14 +103,13 @@
     });
   }
 
-  let salvarSolar = false;
   function calcular(preservarLinhas) {
     if (!config) return;
 
     solar.custoInstalacao = parseFloat(el('custo-instalacao').value) || 0;
     solar.geracaoMensal = parseFloat(el('geracao').value) || 0;
     solar.vidaUtil = parseInt(el('vida-util').value, 10) || 25;
-    if (salvarSolar) ETI.data.setSolar(solar);
+    ETI.data.setSolar(solar);
 
     if (!preservarLinhas) desenharLinhas();
 
@@ -175,14 +170,8 @@
   }
 
   ETI.data.onConfig(function (c) {
-    const primeira = !config;
     config = c;
     const ativo = document.activeElement;
-    const editando = ativo && ativo.tagName === 'INPUT';
-    if (primeira || !editando) {
-      equipamentos = ETI.data.equipamentos();
-      preencherSolar();
-    }
     if (!ativo || ativo.tagName !== 'INPUT') {
       el('tarifa').value = c.tarifa;
       el('dias').value = c.diasLetivos;
@@ -205,9 +194,8 @@
     calcular();
   });
 
-  el('horas-evitadas').addEventListener('input', function () { calcular(true); });
-  ['custo-instalacao', 'geracao', 'vida-util'].forEach(function (id) {
-    el(id).addEventListener('input', function () { salvarSolar = true; calcular(true); salvarSolar = false; });
+  ['horas-evitadas', 'custo-instalacao', 'geracao', 'vida-util'].forEach(function (id) {
+    el(id).addEventListener('input', function () { calcular(true); });
   });
 
   el('dias').addEventListener('input', function () {

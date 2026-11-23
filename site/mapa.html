@@ -32,6 +32,9 @@
   .eventos-mapa { list-style: none; padding: 0; margin: 0; font-size: var(--t1); }
   .eventos-mapa li { padding: 6px 0; border-bottom: 1px solid var(--linha); }
   .eventos-mapa li span { color: var(--tinta-fraca); margin-right: 6px; }
+  .extras .bloco:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+  .registro-sala { max-height: 26em; overflow-y: auto; }
+  .mensagens { background: var(--fundo); border-radius: 8px; max-height: 14em; overflow: auto; }
 </style>
 </head>
 <body>
@@ -146,6 +149,102 @@
 
   </div>
 
+  <section class="secao extras mb-3">
+    <h2>Arduino: testes, cartões e registro</h2>
+    <p class="legenda mt-0">Ferramentas da placa que não ficam nas telas da sala.</p>
+
+    <div class="row g-4 mt-1">
+      <div class="col-lg-4">
+        <div class="bloco">
+          <h3>Teste e manutenção</h3>
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <button type="button" class="btn btn-outline-primary" id="btn-mov" disabled>
+              <i class="bi bi-person-walking" aria-hidden="true"></i> Simular movimento
+            </button>
+            <button type="button" class="btn btn-outline-primary" id="btn-zerar" disabled>
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Zerar contagem
+            </button>
+          </div>
+          <p class="legenda" id="extras-msg" role="status" hidden></p>
+        </div>
+
+        <div class="bloco">
+          <h3>Quem está na sala</h3>
+          <div id="presentes"><p class="legenda mt-0">Carregando…</p></div>
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="bloco">
+          <h3>Cartões</h3>
+          <p class="legenda mt-0 mb-2">Dê um nome a cada cartão que já passou no leitor.</p>
+          <div id="cartoes"><p class="legenda mt-0">Carregando…</p></div>
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="bloco">
+          <h3>Ajustes da placa</h3>
+          <form id="form-ajustes">
+            <div class="row g-2 mb-2">
+              <div class="col-12">
+                <label class="form-label" for="aj-tempoInatividade">Apagar a luz sem movimento após (s)</label>
+                <input class="form-control form-control-sm" type="number" id="aj-tempoInatividade" min="5" max="3600" step="1">
+              </div>
+              <div class="col-6">
+                <label class="form-label" for="aj-capacidade">Capacidade (pessoas)</label>
+                <input class="form-control form-control-sm" type="number" id="aj-capacidade" min="1" max="200" step="1">
+              </div>
+              <div class="col-6">
+                <label class="form-label" for="aj-equipMax">Projetor máx. (°C)</label>
+                <input class="form-control form-control-sm" type="number" id="aj-equipMax" min="20" max="90" step="0.5">
+              </div>
+              <div class="col-6">
+                <label class="form-label" for="aj-umidMin">Umidade mín. (%)</label>
+                <input class="form-control form-control-sm" type="number" id="aj-umidMin" min="0" max="100">
+              </div>
+              <div class="col-6">
+                <label class="form-label" for="aj-umidMax">Umidade máx. (%)</label>
+                <input class="form-control form-control-sm" type="number" id="aj-umidMax" min="0" max="100">
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+              <button type="submit" class="btn btn-sm btn-primary">
+                <i class="bi bi-check2" aria-hidden="true"></i> Salvar ajustes
+              </button>
+              <span class="legenda m-0" id="ajustes-ok" hidden>Ajustes salvos.</span>
+            </div>
+          </form>
+          <p class="legenda">Temperatura da ventilação, luz mínima e desligamento programado ficam em
+            "Regras e horários", na página Sala.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bloco">
+      <h3>Registro da sala</h3>
+      <p class="legenda mt-0">Tudo o que o Arduino contou: entradas e saídas pelo cartão, movimentos, lâmpada, ar e alertas.</p>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <button type="button" class="btn btn-primary" id="btn-csv-eventos">
+          <i class="bi bi-download" aria-hidden="true"></i> Baixar eventos (CSV)
+        </button>
+        <button type="button" class="btn btn-outline-primary" id="btn-csv-historico">
+          <i class="bi bi-download" aria-hidden="true"></i> Baixar leituras (CSV)
+        </button>
+        <button type="button" class="btn btn-outline-primary" id="btn-limpar-registro">
+          <i class="bi bi-trash" aria-hidden="true"></i> Apagar registro
+        </button>
+      </div>
+      <div id="registro"><p class="legenda mt-0">Carregando…</p></div>
+      <p class="legenda">Mostra os 80 eventos mais recentes. As leituras do CSV são um ponto a cada 30 s da última hora.</p>
+    </div>
+
+    <div class="bloco" id="bloco-mensagens" hidden>
+      <h3>Mensagens com a placa</h3>
+      <pre class="mensagens mt-2 mb-0 p-2 small" id="mensagens"></pre>
+    </div>
+  </section>
+
 </div>
 
 <script src="assets/vendor/firebase/firebase-app-compat.js"></script>
@@ -156,5 +255,6 @@
 <script src="assets/js/data.js"></script>
 <script src="assets/js/serial.js"></script>
 <script src="assets/js/mapa.js"></script>
+<script src="assets/js/mapa-extras.js"></script>
 </body>
 </html>
